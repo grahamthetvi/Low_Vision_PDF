@@ -1,6 +1,6 @@
 # Low Vision PDF
 
-**PDF Accessibility Reflo-er** — a static web app that reflows standard PDF pages into large, split images for low-vision reading. PDF parsing, rendering, splitting, and text extraction run entirely in the browser using Web Workers. Document bytes are not sent to any server (only the PDF.js engine scripts load from a public CDN the first time).
+**PDF Accessibility Reflo-er** — a static web app that reflows standard PDF pages into large, split images for low-vision reading. PDF parsing, rendering, splitting, and text extraction run entirely in the browser using Web Workers. Document bytes are not sent to any server; the PDF.js engine is vendored under [`vendor/pdfjs/`](vendor/pdfjs/) so the app works offline after the page is cached.
 
 ## Run locally
 
@@ -14,11 +14,11 @@ Then visit `http://localhost:8080` in a modern browser.
 
 ## GitHub Pages
 
-In the repository **Settings → Pages**, set **Source** to **GitHub Actions**. Pushes to `main` or `master` run `.github/workflows/deploy-pages.yml`, which publishes `index.html`, `css/`, `js/`, and `workers/` plus the `CNAME` file for **lowvisionpdf.com**. Point that domain’s DNS to GitHub Pages as documented by GitHub, then add the custom hostname under Pages settings. If the site is served from a subpath, relative URLs in this project still resolve correctly.
+In the repository **Settings → Pages**, set **Source** to **GitHub Actions**. Pushes to `main` or `master` run `.github/workflows/deploy-pages.yml`, which publishes `index.html`, `css/`, `js/`, `workers/`, and `vendor/` plus the `CNAME` file for **lowvisionpdf.com**. Point that domain’s DNS to GitHub Pages as documented by GitHub, then add the custom hostname under Pages settings. If the site is served from a subpath, relative URLs in this project still resolve correctly.
 
-## Offline / air‑gapped use
+## Updating vendored PDF.js
 
-The render worker loads PDF.js from jsDelivr. To work fully offline, copy `pdf.min.mjs` and `pdf.worker.min.mjs` from the same `pdfjs-dist` npm package version into a `vendor/` folder and update the URLs in `workers/pdfRender.worker.mjs`.
+The render worker imports `vendor/pdfjs/pdf.min.mjs` and `pdf.worker.min.mjs` (version **4.10.38**). To upgrade, replace those two files with the matching builds from the same [pdfjs-dist](https://www.npmjs.com/package/pdfjs-dist) release and keep the paths in `workers/pdfRender.worker.mjs` in sync.
 
 ## Print
 

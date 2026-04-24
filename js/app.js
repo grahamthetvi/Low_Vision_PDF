@@ -291,7 +291,6 @@ async function runReflow() {
         const url = await imageBitmapToObjectUrl(bmp);
         outputObjectUrls.push(url);
         img.src = url;
-        img.loading = "lazy";
 
         wrapper.append(cap, img);
         els.outputContainer.append(wrapper);
@@ -374,7 +373,7 @@ function wireEvents() {
       pageCount = await loadPdfIntoWorker(buffer);
       setStatus(
         pageCount > 0
-          ? `Loaded ${pageCount} page(s). Review the preview, then configure and generate the reflowed view.`
+          ? `Loaded ${pageCount} page(s). Review the preview, extract text to verify the document if needed, configure, then generate the reflowed view.`
           : "Could not read page count.",
       );
       await renderFirstPagePreview();

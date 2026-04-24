@@ -101,9 +101,26 @@ body {
 }
 
 .main {
+  padding: 0 0 3rem;
+}
+
+.main-column {
   max-width: 56rem;
   margin: 0 auto;
-  padding: 1rem 1.5rem 3rem;
+  padding: 1rem 1.5rem 0;
+}
+
+.output-bleed {
+  width: 100%;
+  margin-top: 1.5rem;
+  padding: 0 0.5rem 1rem;
+  box-sizing: border-box;
+}
+
+@media (min-width: 48rem) {
+  .output-bleed {
+    padding: 0 1rem 1.5rem;
+  }
 }
 
 .panel {

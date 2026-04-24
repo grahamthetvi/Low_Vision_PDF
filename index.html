@@ -27,194 +27,204 @@
     </header>
 
     <main id="main" class="main" tabindex="-1">
-      <section
-        class="panel"
-        id="step-upload"
-        aria-labelledby="step-upload-heading"
-      >
-        <h2 id="step-upload-heading">Step 1: Upload</h2>
-        <p id="upload-hint" class="hint">
-          Select a single PDF. Nothing is uploaded to a server.
-        </p>
-        <div class="field-row">
-          <label for="pdf-input" class="file-label">Select PDF</label>
-          <input
-            id="pdf-input"
-            name="pdf"
-            type="file"
-            accept="application/pdf"
-            aria-describedby="upload-hint"
-          />
-        </div>
-        <div
-          class="preview-block"
-          id="preview-block"
-          hidden
-          aria-live="polite"
+      <div class="main-column">
+        <section
+          class="panel"
+          id="step-upload"
+          aria-labelledby="step-upload-heading"
         >
-          <h3 class="preview-heading">Original — first page preview</h3>
-          <canvas
-            id="preview-canvas"
-            class="preview-canvas"
-            role="img"
-            aria-label="Preview of the first page of the selected PDF"
-          ></canvas>
-        </div>
-      </section>
-
-      <section
-        class="panel"
-        id="step-config"
-        aria-labelledby="step-config-heading"
-      >
-        <h2 id="step-config-heading">Step 2: Configuration</h2>
-
-        <fieldset class="fieldset">
-          <legend>Number of splitting segments</legend>
-          <div class="radio-row" role="radiogroup" aria-labelledby="seg-legend">
-            <span id="seg-legend" class="sr-only">Segments</span>
-            <label
-              ><input type="radio" name="segments" value="2" checked /> 2
-              segments</label
-            >
-            <label
-              ><input type="radio" name="segments" value="3" /> 3 segments</label
-            >
-            <label
-              ><input type="radio" name="segments" value="4" /> 4 segments</label
-            >
+          <h2 id="step-upload-heading">Step 1: Upload</h2>
+          <p id="upload-hint" class="hint">
+            Select a single PDF. Nothing is uploaded to a server.
+          </p>
+          <div class="field-row">
+            <label for="pdf-input" class="file-label">Select PDF</label>
+            <input
+              id="pdf-input"
+              name="pdf"
+              type="file"
+              accept="application/pdf"
+              aria-describedby="upload-hint"
+            />
           </div>
-        </fieldset>
-
-        <fieldset class="fieldset">
-          <legend>Splitting direction</legend>
-          <div class="radio-row">
-            <label
-              ><input
-                type="radio"
-                name="direction"
-                value="horizontal"
-                checked
-              />
-              Horizontal (top to bottom)</label
-            >
-            <label
-              ><input type="radio" name="direction" value="vertical" /> Vertical
-              (left to right)</label
-            >
+          <div
+            class="preview-block"
+            id="preview-block"
+            hidden
+            aria-live="polite"
+          >
+            <h3 class="preview-heading">Original — first page preview</h3>
+            <canvas
+              id="preview-canvas"
+              class="preview-canvas"
+              role="img"
+              aria-label="Preview of the first page of the selected PDF"
+            ></canvas>
           </div>
-        </fieldset>
+        </section>
 
-        <fieldset class="fieldset">
-          <legend>Rotate output segments</legend>
-          <div class="radio-row">
-            <label
-              ><input type="radio" name="rotation" value="0" checked /> No
-              rotation (0°)</label
-            >
-            <label
-              ><input type="radio" name="rotation" value="90" /> Rotate right
-              (90° clockwise)</label
-            >
-            <label
-              ><input type="radio" name="rotation" value="270" /> Rotate left
-              (90° counter-clockwise)</label
-            >
-            <label
-              ><input type="radio" name="rotation" value="180" /> Rotate down
-              (180°)</label
-            >
-          </div>
-        </fieldset>
-
-        <div class="field-row checkbox-row">
-          <input
-            type="checkbox"
-            id="trim-margins"
-            aria-describedby="trim-desc"
-          />
-          <label for="trim-margins">Detect and trim blank margins</label>
-        </div>
-        <p id="trim-desc" class="hint">
-          Crops each page to the bounding box of visible ink before splitting.
-        </p>
-        <button
-          type="button"
-          id="undo-trim"
-          class="secondary-btn"
-          hidden
-          aria-label="Undo margin trimming and regenerate output using full pages"
+        <section
+          class="panel"
+          id="step-config"
+          aria-labelledby="step-config-heading"
         >
-          Undo margin trim
-        </button>
-      </section>
+          <h2 id="step-config-heading">Step 2: Configuration</h2>
 
-      <section
-        class="panel"
-        id="step-process"
+          <fieldset class="fieldset">
+            <legend>Number of splitting segments</legend>
+            <div class="radio-row">
+              <label
+                ><input type="radio" name="segments" value="2" checked /> 2
+                segments</label
+              >
+              <label
+                ><input type="radio" name="segments" value="3" /> 3
+                segments</label
+              >
+              <label
+                ><input type="radio" name="segments" value="4" /> 4
+                segments</label
+              >
+            </div>
+          </fieldset>
+
+          <fieldset class="fieldset">
+            <legend>Splitting direction</legend>
+            <div class="radio-row">
+              <label
+                ><input
+                  type="radio"
+                  name="direction"
+                  value="horizontal"
+                  checked
+                />
+                Horizontal (top to bottom)</label
+              >
+              <label
+                ><input type="radio" name="direction" value="vertical" />
+                Vertical (left to right)</label
+              >
+            </div>
+          </fieldset>
+
+          <fieldset class="fieldset">
+            <legend>Rotate output segments</legend>
+            <div class="radio-row">
+              <label
+                ><input type="radio" name="rotation" value="0" checked /> No
+                rotation (0°)</label
+              >
+              <label
+                ><input type="radio" name="rotation" value="90" /> Rotate right
+                (90° clockwise)</label
+              >
+              <label
+                ><input type="radio" name="rotation" value="270" /> Rotate left
+                (90° counter-clockwise)</label
+              >
+              <label
+                ><input type="radio" name="rotation" value="180" /> Rotate down
+                (180°)</label
+              >
+            </div>
+          </fieldset>
+
+          <div class="field-row checkbox-row">
+            <input
+              type="checkbox"
+              id="trim-margins"
+              aria-describedby="trim-desc"
+            />
+            <label for="trim-margins">Detect and trim blank margins</label>
+          </div>
+          <p id="trim-desc" class="hint">
+            Crops each page to the bounding box of visible ink before splitting.
+          </p>
+          <button
+            type="button"
+            id="undo-trim"
+            class="secondary-btn"
+            hidden
+            aria-label="Undo margin trimming and regenerate output using full pages"
+          >
+            Undo margin trim
+          </button>
+        </section>
+
+        <section
+          class="panel"
+          id="step-verify"
+          aria-labelledby="step-verify-heading"
+        >
+          <h2 id="step-verify-heading">Step 3: Verify (text extraction)</h2>
+          <p id="extract-hint" class="hint">
+            Embedded text is read with the same PDF engine used for rendering. No
+            text leaves your device. Extract text before generating the reflowed
+            view to confirm this is the correct document.
+          </p>
+          <button
+            type="button"
+            id="extract-btn"
+            class="primary-btn"
+            aria-busy="false"
+            aria-describedby="extract-hint"
+          >
+            Extract text for verification
+          </button>
+          <label for="extracted-text" class="textarea-label"
+            >Extracted document text</label
+          >
+          <textarea
+            id="extracted-text"
+            class="extracted-text"
+            readonly
+            rows="12"
+            spellcheck="false"
+            aria-label="Plain text extracted from the PDF for verification"
+            placeholder="Text will appear here after extraction."
+          ></textarea>
+        </section>
+
+        <section
+          class="panel"
+          id="step-process"
+          aria-labelledby="step-process-heading"
+        >
+          <h2 id="step-process-heading">Step 4: Process and view</h2>
+          <p class="hint" id="process-hint">
+            Workers render and split the PDF off the main thread. Large files may
+            take a moment.
+          </p>
+          <button
+            type="button"
+            id="process-btn"
+            class="primary-btn"
+            aria-busy="false"
+            aria-describedby="process-hint"
+          >
+            Generate reflowed view
+          </button>
+          <div
+            id="status-region"
+            class="status-region"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          ></div>
+        </section>
+      </div>
+
+      <div
+        class="output-bleed"
+        role="region"
         aria-labelledby="step-process-heading"
       >
-        <h2 id="step-process-heading">Step 3: Process and view</h2>
-        <p class="hint" id="process-hint">
-          Workers render and split the PDF off the main thread. Large files may
-          take a moment.
-        </p>
-        <button
-          type="button"
-          id="process-btn"
-          class="primary-btn"
-          aria-busy="false"
-          aria-describedby="process-hint"
-        >
-          Generate reflowed view
-        </button>
-        <div
-          id="status-region"
-          class="status-region"
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-        ></div>
-
         <div
           id="output-container"
           class="output-container"
           aria-label="Reflowed split segments"
         ></div>
-      </section>
-
-      <section
-        class="panel"
-        id="step-verify"
-        aria-labelledby="step-verify-heading"
-      >
-        <h2 id="step-verify-heading">Step 4: Verify (text extraction)</h2>
-        <p id="extract-hint" class="hint">
-          Embedded text is read with the same PDF engine used for rendering. No
-          text leaves your device.
-        </p>
-        <button
-          type="button"
-          id="extract-btn"
-          class="primary-btn"
-          aria-busy="false"
-          aria-describedby="extract-hint"
-        >
-          Extract text for verification
-        </button>
-        <label for="extracted-text" class="textarea-label"
-          >Extracted document text</label
-        >
-        <textarea
-          id="extracted-text"
-          class="extracted-text"
-          readonly
-          rows="12"
-          spellcheck="false"
-          aria-label="Plain text extracted from the PDF for verification"
-          placeholder="Text will appear here after extraction."
-        ></textarea>
-      </section>
+      </div>
     </main>
 
     <footer class="site-footer" role="contentinfo">

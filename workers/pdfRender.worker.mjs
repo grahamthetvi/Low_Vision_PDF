@@ -4,9 +4,13 @@
  * No document bytes are sent to any remote server.
  */
 
-const PDFJS_VERSION = "4.10.38";
-const PDF_MODULE_URL = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}/build/pdf.min.mjs`;
-const PDF_WORKER_URL = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worker.min.mjs`;
+/** Vendored pdf.js 4.10.38 — same-origin, no CDN required for the engine. */
+const PDF_MODULE_URL = new URL("../vendor/pdfjs/pdf.min.mjs", import.meta.url)
+  .href;
+const PDF_WORKER_URL = new URL(
+  "../vendor/pdfjs/pdf.worker.min.mjs",
+  import.meta.url,
+).href;
 
 /** @type {any} */
 let pdfjsLib = null;
