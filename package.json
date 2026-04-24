@@ -1,0 +1,20 @@
+{
+  "name": "low_vision_pdf",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/grahamthetvi/Low_Vision_PDF.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/grahamthetvi/Low_Vision_PDF/issues"
+  },
+  "homepage": "https://github.com/grahamthetvi/Low_Vision_PDF#readme"
+}
