@@ -112,6 +112,7 @@ async function extractAllText() {
   if (!pdfDocument) throw new Error("No PDF loaded");
   const numPages = pdfDocument.numPages;
   const chunks = [];
+  let hasText = false;
 
   for (let p = 1; p <= numPages; p++) {
     const page = await pdfDocument.getPage(p);
@@ -120,10 +121,12 @@ async function extractAllText() {
       .filter((item) => "str" in item && item.str)
       .map((item) => item.str)
       .join(" ");
+    
+    if (pageText.trim()) hasText = true;
     chunks.push(`--- Page ${p} ---\n${pageText}\n`);
   }
 
-  return chunks.join("\n");
+  return hasText ? chunks.join("\n") : "";
 }
 
 self.onmessage = async (event) => {
