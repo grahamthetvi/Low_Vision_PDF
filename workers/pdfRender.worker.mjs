@@ -164,11 +164,15 @@ self.onmessage = async (event) => {
         }
         pdfDocument = null;
       }
+      // `disableFontFace: true` draws glyph outlines in the canvas instead of relying on
+      // @font-face in a worker, which often fails and shows "tofu" boxes. Output is then
+      // image-like (as if scanned); embedded text is still available via getTextContent().
       const loadingTask = pdfjsLib.getDocument({
         data: buffer,
         cMapUrl: `${PDFJS_VENDOR_ROOT}cmaps/`,
         cMapPacked: true,
         standardFontDataUrl: `${PDFJS_VENDOR_ROOT}standard_fonts/`,
+        disableFontFace: true,
       });
       pdfDocument = await loadingTask.promise;
       self.postMessage({
