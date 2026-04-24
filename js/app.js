@@ -18,7 +18,12 @@ function getDebugOut() {
 function logToDebug(level, ...args) {
   const out = getDebugOut();
   if (!out) return;
-  const msg = args.map(a => (typeof a === 'object' ? (a instanceof Error ? a.stack || a.message : JSON.stringify(a)) : String(a))).join(' ');
+  const msg = args.map(a => {
+    if (a instanceof Error) {
+      return String(a) + (a.stack ? "\n" + a.stack : "");
+    }
+    return typeof a === 'object' ? JSON.stringify(a) : String(a);
+  }).join(' ');
   const line = document.createElement("div");
   line.textContent = `[${level.toUpperCase()}] ${msg}`;
   line.style.color = level === 'error' ? 'red' : level === 'warn' ? 'orange' : 'inherit';

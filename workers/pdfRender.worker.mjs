@@ -22,6 +22,20 @@ let pdfDocument = null;
 
 async function ensurePdfJs() {
   if (pdfjsLib) return;
+
+  if (typeof document === "undefined") {
+    globalThis.document = {
+      createElement: () => ({ style: {} }),
+      documentElement: { style: {} },
+      head: { appendChild: () => {} },
+      body: { appendChild: () => {} },
+      getElementsByTagName: () => []
+    };
+  }
+  if (typeof window === "undefined") {
+    globalThis.window = globalThis;
+  }
+
   pdfjsLib = await import(/* webpackIgnore: true */ PDF_MODULE_URL);
   pdfjsLib.GlobalWorkerOptions.workerSrc = PDF_WORKER_URL;
 }
