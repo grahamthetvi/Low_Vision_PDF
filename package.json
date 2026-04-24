@@ -16,5 +16,8 @@
   "bugs": {
     "url": "https://github.com/grahamthetvi/Low_Vision_PDF/issues"
   },
-  "homepage": "https://lowvisionpdf.com"
+  "homepage": "https://lowvisionpdf.com",
+  "devDependencies": {
+    "pdf-lib": "^1.17.1"
+  }
 }

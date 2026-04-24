@@ -9,21 +9,63 @@
   <body>
     <a class="skip-link" href="#main">Skip to main content</a>
 
+    <div
+      id="welcome-screen"
+      class="welcome-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="welcome-title"
+      hidden
+    >
+      <div class="welcome-card">
+        <h2 id="welcome-title">Welcome to Low Vision PDF</h2>
+        <p>
+          This tool helps you prepare a document that is easier to read with low
+          vision. You upload a PDF in your browser (nothing is sent to a
+          server). The app can show you the embedded text so you know it is the
+          right file, then you choose how each page is split into larger
+          segments. When you are done, you can print the result or download a
+          new PDF made from those pages for printing at home.
+        </p>
+        <ul class="welcome-steps">
+          <li>Upload your PDF and check the first-page preview.</li>
+          <li>Optional: extract text to verify the document.</li>
+          <li>Set splitting, direction, rotation, and margin options.</li>
+          <li>Generate the reflowed view, then download or use Print.</li>
+        </ul>
+        <button type="button" id="welcome-continue" class="primary-btn">
+          Get started
+        </button>
+      </div>
+    </div>
+
     <header class="site-header" role="banner">
-      <h1 id="app-title">Low Vision PDF</h1>
+      <div class="site-header-top">
+        <h1 id="app-title">Low Vision PDF</h1>
+        <div class="site-header-actions">
+          <button
+            type="button"
+            id="welcome-help"
+            class="text-btn"
+            aria-haspopup="dialog"
+          >
+            How it works
+          </button>
+          <button
+            type="button"
+            id="theme-toggle"
+            class="theme-toggle"
+            aria-pressed="false"
+            aria-label="Switch to dark high-contrast theme"
+          >
+            Dark mode
+          </button>
+        </div>
+      </div>
       <p class="tagline">
         Reflow PDF pages into large, split segments for low-vision reading. All
         processing stays in your browser.
       </p>
-      <button
-        type="button"
-        id="theme-toggle"
-        class="theme-toggle"
-        aria-pressed="false"
-        aria-label="Switch to dark high-contrast theme"
-      >
-        Dark mode
-      </button>
     </header>
 
     <main id="main" class="main" tabindex="-1">
@@ -65,10 +107,44 @@
 
         <section
           class="panel"
+          id="step-verify"
+          aria-labelledby="step-verify-heading"
+        >
+          <h2 id="step-verify-heading">Step 2: Verify (text extraction)</h2>
+          <p id="extract-hint" class="hint">
+            Embedded text is read with the same PDF engine used for rendering. No
+            text leaves your device. Use this after upload to confirm you have
+            the correct document before you adjust layout options.
+          </p>
+          <button
+            type="button"
+            id="extract-btn"
+            class="primary-btn"
+            aria-busy="false"
+            aria-describedby="extract-hint"
+          >
+            Extract text for verification
+          </button>
+          <label for="extracted-text" class="textarea-label"
+            >Extracted document text</label
+          >
+          <textarea
+            id="extracted-text"
+            class="extracted-text"
+            readonly
+            rows="12"
+            spellcheck="false"
+            aria-label="Plain text extracted from the PDF for verification"
+            placeholder="Text will appear here after extraction."
+          ></textarea>
+        </section>
+
+        <section
+          class="panel"
           id="step-config"
           aria-labelledby="step-config-heading"
         >
-          <h2 id="step-config-heading">Step 2: Configuration</h2>
+          <h2 id="step-config-heading">Step 3: Configuration</h2>
 
           <fieldset class="fieldset">
             <legend>Number of splitting segments</legend>
@@ -153,44 +229,10 @@
 
         <section
           class="panel"
-          id="step-verify"
-          aria-labelledby="step-verify-heading"
-        >
-          <h2 id="step-verify-heading">Step 3: Verify (text extraction)</h2>
-          <p id="extract-hint" class="hint">
-            Embedded text is read with the same PDF engine used for rendering. No
-            text leaves your device. Extract text before generating the reflowed
-            view to confirm this is the correct document.
-          </p>
-          <button
-            type="button"
-            id="extract-btn"
-            class="primary-btn"
-            aria-busy="false"
-            aria-describedby="extract-hint"
-          >
-            Extract text for verification
-          </button>
-          <label for="extracted-text" class="textarea-label"
-            >Extracted document text</label
-          >
-          <textarea
-            id="extracted-text"
-            class="extracted-text"
-            readonly
-            rows="12"
-            spellcheck="false"
-            aria-label="Plain text extracted from the PDF for verification"
-            placeholder="Text will appear here after extraction."
-          ></textarea>
-        </section>
-
-        <section
-          class="panel"
           id="step-process"
           aria-labelledby="step-process-heading"
         >
-          <h2 id="step-process-heading">Step 4: Process and view</h2>
+          <h2 id="step-process-heading">Step 4: Process, view, and download</h2>
           <p class="hint" id="process-hint">
             Workers render and split the PDF off the main thread. Large files may
             take a moment.
@@ -204,6 +246,22 @@
           >
             Generate reflowed view
           </button>
+          <button
+            type="button"
+            id="download-pdf-btn"
+            class="secondary-btn"
+            hidden
+            disabled
+            aria-busy="false"
+            aria-describedby="download-hint"
+          >
+            Download reflowed PDF
+          </button>
+          <p id="download-hint" class="hint">
+            Saves one PDF page per segment image, sized to match each image, for
+            printing or sharing. Your browser’s Print dialog is still available
+            if you prefer.
+          </p>
           <div
             id="status-region"
             class="status-region"
@@ -229,8 +287,9 @@
 
     <footer class="site-footer" role="contentinfo">
       <p>
-        Low Vision PDF — client-side only. Use your browser’s print dialog to
-        print or save as PDF from the reflowed view.
+        Low Vision PDF — client-side only. After generating the reflowed view,
+        use Download reflowed PDF or your browser’s print dialog to print or
+        save as PDF.
       </p>
     </footer>
 

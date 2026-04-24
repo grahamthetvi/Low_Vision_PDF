@@ -5,6 +5,9 @@
 
 const PDF_WORKER_URL = new URL("../workers/pdfRender.worker.mjs", import.meta.url);
 const SPLIT_WORKER_URL = new URL("../workers/split.worker.mjs", import.meta.url);
+const PDF_LIB_URL = new URL("../vendor/pdf-lib/pdf-lib.esm.min.js", import.meta.url);
+
+const WELCOME_SEEN_KEY = "lv-pdf-welcome-seen";
 
 /** @type {Worker | null} */
 let pdfWorker = null;
@@ -13,9 +16,14 @@ let splitWorker = null;
 
 let pdfLoaded = false;
 let pageCount = 0;
+/** @type {string} */
+let lastPdfBaseName = "";
 /** @type {string[]} */
 let outputObjectUrls = [];
 const els = {
+  welcomeScreen: document.getElementById("welcome-screen"),
+  welcomeContinue: document.getElementById("welcome-continue"),
+  welcomeHelp: document.getElementById("welcome-help"),
   themeToggle: document.getElementById("theme-toggle"),
   pdfInput: document.getElementById("pdf-input"),
   previewBlock: document.getElementById("preview-block"),
@@ -24,6 +32,7 @@ const els = {
   undoTrim: document.getElementById("undo-trim"),
   processBtn: document.getElementById("process-btn"),
   extractBtn: document.getElementById("extract-btn"),
+  downloadPdfBtn: document.getElementById("download-pdf-btn"),
   statusRegion: document.getElementById("status-region"),
   outputContainer: document.getElementById("output-container"),
   extractedText: document.getElementById("extracted-text"),
@@ -106,12 +115,23 @@ function setStatus(text) {
   els.statusRegion.textContent = text;
 }
 
+function hideDownloadPdf() {
+  els.downloadPdfBtn.hidden = true;
+  els.downloadPdfBtn.disabled = true;
+}
+
 function clearOutputUrls() {
   for (const url of outputObjectUrls) {
     URL.revokeObjectURL(url);
   }
   outputObjectUrls = [];
   els.outputContainer.replaceChildren();
+  hideDownloadPdf();
+}
+
+function reflowedDownloadFilename() {
+  const base = lastPdfBaseName.replace(/\.pdf$/i, "") || "document";
+  return `${base}-reflowed.pdf`;
 }
 
 function readSegments() {
@@ -224,6 +244,7 @@ async function runReflow() {
 
   els.processBtn.disabled = true;
   els.extractBtn.disabled = true;
+  els.downloadPdfBtn.disabled = true;
   els.processBtn.setAttribute("aria-busy", "true");
   setStatus("Processing…");
 
@@ -297,17 +318,22 @@ async function runReflow() {
     }
 
     els.undoTrim.hidden = !trimMargins;
+    const n = els.outputContainer.querySelectorAll("img").length;
+    els.downloadPdfBtn.hidden = false;
+    els.downloadPdfBtn.disabled = false;
     setStatus(
-      `Done. ${pageCount} page(s) reflowed into ${els.outputContainer.querySelectorAll("img").length} segment image(s).`,
+      `Done. ${pageCount} page(s) reflowed into ${n} segment image(s). Use “Download reflowed PDF” when you are ready.`,
     );
   } catch (err) {
     console.error(err);
+    hideDownloadPdf();
     setStatus(
       `Error: ${err instanceof Error ? err.message : String(err)}`,
     );
   } finally {
     els.processBtn.disabled = false;
     els.extractBtn.disabled = false;
+    els.downloadPdfBtn.disabled = els.downloadPdfBtn.hidden;
     els.processBtn.setAttribute("aria-busy", "false");
   }
 }
@@ -320,6 +346,7 @@ async function runTextExtraction() {
 
   els.extractBtn.disabled = true;
   els.processBtn.disabled = true;
+  els.downloadPdfBtn.disabled = true;
   els.extractBtn.setAttribute("aria-busy", "true");
   setStatus("Extracting text…");
 
@@ -337,8 +364,92 @@ async function runTextExtraction() {
   } finally {
     els.extractBtn.disabled = false;
     els.processBtn.disabled = false;
+    els.downloadPdfBtn.disabled = els.downloadPdfBtn.hidden;
     els.extractBtn.setAttribute("aria-busy", "false");
   }
+}
+
+async function downloadReflowedPdf() {
+  const imgs = els.outputContainer.querySelectorAll("img.output-img");
+  if (imgs.length === 0) {
+    setStatus("Generate the reflowed view first.");
+    return;
+  }
+
+  els.downloadPdfBtn.disabled = true;
+  els.downloadPdfBtn.setAttribute("aria-busy", "true");
+  setStatus("Building PDF…");
+
+  try {
+    const { PDFDocument } = await import(PDF_LIB_URL);
+    const pdfDoc = await PDFDocument.create();
+
+    for (const img of imgs) {
+      const res = await fetch(img.src);
+      if (!res.ok) {
+        throw new Error("Could not read a segment image");
+      }
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      const pngImage = await pdfDoc.embedPng(bytes);
+      const w = pngImage.width;
+      const h = pngImage.height;
+      const page = pdfDoc.addPage([w, h]);
+      page.drawImage(pngImage, { x: 0, y: 0, width: w, height: h });
+    }
+
+    const outBytes = await pdfDoc.save();
+    const blob = new Blob([outBytes], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = reflowedDownloadFilename();
+    a.rel = "noopener";
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    setStatus("Reflowed PDF download started.");
+  } catch (err) {
+    console.error(err);
+    setStatus(
+      `Could not build PDF: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  } finally {
+    els.downloadPdfBtn.disabled = false;
+    els.downloadPdfBtn.setAttribute("aria-busy", "false");
+  }
+}
+
+function initWelcome() {
+  function showWelcome() {
+    els.welcomeScreen.removeAttribute("hidden");
+    requestAnimationFrame(() => {
+      els.welcomeContinue.focus();
+    });
+  }
+
+  function dismissWelcome() {
+    els.welcomeScreen.setAttribute("hidden", "");
+    try {
+      localStorage.setItem(WELCOME_SEEN_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+    els.pdfInput.focus();
+  }
+
+  try {
+    if (!localStorage.getItem(WELCOME_SEEN_KEY)) {
+      showWelcome();
+    }
+  } catch {
+    showWelcome();
+  }
+
+  els.welcomeContinue.addEventListener("click", dismissWelcome);
+  els.welcomeHelp.addEventListener("click", () => {
+    showWelcome();
+  });
 }
 
 function wireEvents() {
@@ -354,7 +465,9 @@ function wireEvents() {
     els.undoTrim.hidden = true;
     pageCount = 0;
     pdfLoaded = false;
+    lastPdfBaseName = "";
     els.extractedText.value = "";
+    els.extractBtn.disabled = true;
 
     if (!file) {
       setStatus("No file selected.");
@@ -366,6 +479,7 @@ function wireEvents() {
       return;
     }
 
+    lastPdfBaseName = file.name || "document.pdf";
     setStatus("Loading PDF…");
 
     try {
@@ -373,9 +487,12 @@ function wireEvents() {
       pageCount = await loadPdfIntoWorker(buffer);
       setStatus(
         pageCount > 0
-          ? `Loaded ${pageCount} page(s). Review the preview, extract text to verify the document if needed, configure, then generate the reflowed view.`
+          ? `Loaded ${pageCount} page(s). Review the preview, optionally extract text to verify, then configure and generate the reflowed view.`
           : "Could not read page count.",
       );
+      if (pageCount > 0) {
+        els.extractBtn.disabled = false;
+      }
       await renderFirstPagePreview();
     } catch (err) {
       console.error(err);
@@ -394,6 +511,10 @@ function wireEvents() {
     void runTextExtraction();
   });
 
+  els.downloadPdfBtn.addEventListener("click", () => {
+    void downloadReflowedPdf();
+  });
+
   els.undoTrim.addEventListener("click", () => {
     els.trimMargins.checked = false;
     els.undoTrim.hidden = true;
@@ -403,6 +524,9 @@ function wireEvents() {
 
 function init() {
   initTheme();
+  initWelcome();
+  els.extractBtn.disabled = true;
+  hideDownloadPdf();
   setStatus("Ready. Select a PDF to begin.");
   wireEvents();
 }

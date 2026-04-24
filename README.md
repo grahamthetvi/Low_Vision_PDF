@@ -20,6 +20,10 @@ In the repository **Settings → Pages**, set **Source** to **GitHub Actions**. 
 
 The render worker imports `vendor/pdfjs/pdf.min.mjs` and `pdf.worker.min.mjs` (version **4.10.38**). To upgrade, replace those two files with the matching builds from the same [pdfjs-dist](https://www.npmjs.com/package/pdfjs-dist) release and keep the paths in `workers/pdfRender.worker.mjs` in sync.
 
+## Reflowed PDF download
+
+The main thread dynamically imports [pdf-lib](https://pdf-lib.js.org/) from `vendor/pdf-lib/pdf-lib.esm.min.js` (version **1.17.1**) to assemble segment PNGs into a multi-page PDF. To upgrade, run `npm install pdf-lib@<version>` and copy `node_modules/pdf-lib/dist/pdf-lib.esm.min.js` into `vendor/pdf-lib/`, then update this README line.
+
 ## Print
 
 Use the browser’s Print dialog on the reflowed view; users can print to paper or “Save as PDF” from there.
