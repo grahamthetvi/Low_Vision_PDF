@@ -18,6 +18,7 @@
   },
   "homepage": "https://lowvisionpdf.com",
   "devDependencies": {
-    "pdf-lib": "^1.17.1"
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^4.10.38"
   }
 }

@@ -18,7 +18,7 @@ In the repository **Settings → Pages**, set **Source** to **GitHub Actions**. 
 
 ## Updating vendored PDF.js
 
-The render worker imports `vendor/pdfjs/pdf.min.mjs` and `pdf.worker.min.mjs` (version **4.10.38**). To upgrade, replace those two files with the matching builds from the same [pdfjs-dist](https://www.npmjs.com/package/pdfjs-dist) release and keep the paths in `workers/pdfRender.worker.mjs` in sync.
+The render worker imports `vendor/pdfjs/pdf.min.mjs` and `pdf.worker.min.mjs` (version **4.10.38**) and passes `cMapUrl` / `standardFontDataUrl` into `getDocument` so PDF.js can load **cmaps** and **standard_fonts** from `vendor/pdfjs/`. Those folders ship beside the `.mjs` files so CID-keyed fonts and the standard 14 PDF fonts draw as real text instead of hex “tofu” boxes. To upgrade, run `npm install pdfjs-dist@<version>` and copy the `.mjs` worker bundle you use plus the `cmaps/` and `standard_fonts/` directories from that release into `vendor/pdfjs/`, then update this README line.
 
 ## Reflowed PDF download
 

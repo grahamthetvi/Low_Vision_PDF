@@ -1,7 +1,7 @@
 /**
  * PDF.js runs in this dedicated worker for parsing, text extraction, and
- * rasterization. The official pdf.worker is loaded from the same CDN version.
- * No document bytes are sent to any remote server.
+ * rasterization. Engine and auxiliary font data are loaded from `vendor/pdfjs/`
+ * (same origin). No document bytes are sent to any remote server.
  */
 
 /** Vendored pdf.js 4.10.38 — same-origin, no CDN required for the engine. */
@@ -11,6 +11,9 @@ const PDF_WORKER_URL = new URL(
   "../vendor/pdfjs/pdf.worker.min.mjs",
   import.meta.url,
 ).href;
+
+/** Same directory as pdf.min.mjs — CMaps and standard fonts for correct text shaping (avoids “tofu” hex boxes). */
+const PDFJS_VENDOR_ROOT = new URL("../vendor/pdfjs/", import.meta.url).href;
 
 /** @type {any} */
 let pdfjsLib = null;
@@ -144,7 +147,12 @@ self.onmessage = async (event) => {
         }
         pdfDocument = null;
       }
-      const loadingTask = pdfjsLib.getDocument({ data: buffer });
+      const loadingTask = pdfjsLib.getDocument({
+        data: buffer,
+        cMapUrl: `${PDFJS_VENDOR_ROOT}cmaps/`,
+        cMapPacked: true,
+        standardFontDataUrl: `${PDFJS_VENDOR_ROOT}standard_fonts/`,
+      });
       pdfDocument = await loadingTask.promise;
       self.postMessage({
         requestId,
