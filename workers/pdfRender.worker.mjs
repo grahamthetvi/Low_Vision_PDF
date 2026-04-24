@@ -98,7 +98,7 @@ async function renderPageToBitmap(pageIndex, maxLongEdge, trimMargins) {
     Math.ceil(viewport.width),
     Math.ceil(viewport.height),
   );
-  const ctx = canvas.getContext("2d", { alpha: false });
+  const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Could not get 2D context");
 
   await page.render({
@@ -112,7 +112,7 @@ async function renderPageToBitmap(pageIndex, maxLongEdge, trimMargins) {
     const box = contentBoundingBox(imageData);
     if (box && box.w > 0 && box.h > 0) {
       const trimmed = new OffscreenCanvas(box.w, box.h);
-      const tctx = trimmed.getContext("2d", { alpha: false });
+      const tctx = trimmed.getContext("2d");
       if (!tctx) throw new Error("Could not get trimmed context");
       tctx.drawImage(canvas, box.x, box.y, box.w, box.h, 0, 0, box.w, box.h);
       return trimmed.transferToImageBitmap();

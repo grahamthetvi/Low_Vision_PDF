@@ -93,7 +93,15 @@ function postWorkerRequest(worker, message, transfer) {
       : Math.random().toString(36).slice(2) + Date.now().toString(36);
 
     function onMessage(ev) {
-      const data = ev.data;
+      let data;
+      try {
+        data = ev.data;
+      } catch (err) {
+        worker.removeEventListener("message", onMessage);
+        worker.removeEventListener("error", onError);
+        reject(new Error(`Failed to read worker message data: ${err instanceof Error ? err.message : String(err)}`));
+        return;
+      }
       if (!data || data.requestId !== requestId) return;
       worker.removeEventListener("message", onMessage);
       worker.removeEventListener("error", onError);
