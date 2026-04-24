@@ -53,6 +53,13 @@
           </button>
           <button
             type="button"
+            id="debug-toggle"
+            class="text-btn"
+          >
+            Debug
+          </button>
+          <button
+            type="button"
             id="theme-toggle"
             class="theme-toggle"
             aria-pressed="false"
@@ -292,6 +299,15 @@
         save as PDF.
       </p>
     </footer>
+
+    <div id="debug-panel" class="debug-panel" hidden>
+      <div class="debug-header">
+        <h3>Debug Log</h3>
+        <button id="debug-clear" class="text-btn">Clear</button>
+        <button id="debug-close" class="text-btn">Close</button>
+      </div>
+      <pre id="debug-output"></pre>
+    </div>
 
     <script type="module" src="js/app.js"></script>
   </body>

@@ -488,3 +488,49 @@ input[type="file"]:focus-visible {
     background: #ffffff !important;
   }
 }
+
+.debug-panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 40vh;
+  background: var(--panel-bg);
+  border-top: 3px solid var(--border);
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+  box-shadow: 0 -0.5rem 1rem rgba(0, 0, 0, 0.2);
+}
+
+.debug-panel[hidden] {
+  display: none;
+}
+
+.debug-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.debug-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+#debug-output {
+  flex-grow: 1;
+  overflow-y: auto;
+  font-family: monospace;
+  font-size: 0.9rem;
+  background: var(--bg);
+  color: var(--fg);
+  padding: 0.5rem;
+  margin: 0;
+  border: 1px solid var(--border);
+  white-space: pre-wrap;
+}

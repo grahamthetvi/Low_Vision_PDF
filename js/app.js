@@ -9,6 +9,40 @@ const PDF_LIB_URL = new URL("../vendor/pdf-lib/pdf-lib.esm.min.js", import.meta.
 
 const WELCOME_SEEN_KEY = "lv-pdf-welcome-seen";
 
+let _debugOut = null;
+function getDebugOut() {
+  if (!_debugOut) _debugOut = document.getElementById("debug-output");
+  return _debugOut;
+}
+
+function logToDebug(level, ...args) {
+  const out = getDebugOut();
+  if (!out) return;
+  const msg = args.map(a => (typeof a === 'object' ? (a instanceof Error ? a.stack || a.message : JSON.stringify(a)) : String(a))).join(' ');
+  const line = document.createElement("div");
+  line.textContent = `[${level.toUpperCase()}] ${msg}`;
+  line.style.color = level === 'error' ? 'red' : level === 'warn' ? 'orange' : 'inherit';
+  out.appendChild(line);
+  out.scrollTop = out.scrollHeight;
+}
+
+const origConsole = {
+  log: console.log,
+  warn: console.warn,
+  error: console.error,
+};
+
+console.log = (...args) => { origConsole.log(...args); logToDebug('info', ...args); };
+console.warn = (...args) => { origConsole.warn(...args); logToDebug('warn', ...args); };
+console.error = (...args) => { origConsole.error(...args); logToDebug('error', ...args); };
+
+window.addEventListener("error", (e) => {
+  console.error("Global Error: " + (e.message || e.error?.message || e));
+});
+window.addEventListener("unhandledrejection", (e) => {
+  console.error("Unhandled Promise Rejection: " + (e.reason?.message || e.reason));
+});
+
 /** @type {Worker | null} */
 let pdfWorker = null;
 /** @type {Worker | null} */
@@ -36,6 +70,10 @@ const els = {
   statusRegion: document.getElementById("status-region"),
   outputContainer: document.getElementById("output-container"),
   extractedText: document.getElementById("extracted-text"),
+  debugToggle: document.getElementById("debug-toggle"),
+  debugPanel: document.getElementById("debug-panel"),
+  debugClear: document.getElementById("debug-clear"),
+  debugClose: document.getElementById("debug-close"),
 };
 
 /**
@@ -499,9 +537,8 @@ function wireEvents() {
     } catch (err) {
       console.error(err);
       pageCount = 0;
-      setStatus(
-        `Could not load PDF: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      const errMsg = err instanceof Error ? err.message : String(err);
+      setStatus(`Could not load PDF: ${errMsg}`);
     }
   });
 
@@ -521,6 +558,18 @@ function wireEvents() {
     els.trimMargins.checked = false;
     els.undoTrim.hidden = true;
     void runReflow();
+  });
+
+  els.debugToggle.addEventListener("click", () => {
+    els.debugPanel.hidden = !els.debugPanel.hidden;
+  });
+
+  els.debugClose.addEventListener("click", () => {
+    els.debugPanel.hidden = true;
+  });
+
+  els.debugClear.addEventListener("click", () => {
+    getDebugOut().innerHTML = "";
   });
 }
 
