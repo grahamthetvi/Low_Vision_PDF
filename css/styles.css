@@ -91,6 +91,37 @@ body {
   gap: 0.5rem 1rem;
 }
 
+/* Yellow support link: golden text, readable on both themes */
+.support-link {
+  color: #b38600;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  padding: 0.5rem 0.25rem;
+  border: 2px solid transparent;
+  border-radius: 2px;
+}
+
+.support-link:hover {
+  color: #8f6a00;
+  text-decoration-thickness: 2px;
+}
+
+.support-link:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+  border-color: #ffcc00;
+  background: rgba(255, 204, 0, 0.2);
+}
+
+[data-theme="dark"] .support-link {
+  color: #ffeb3b;
+}
+
+[data-theme="dark"] .support-link:hover {
+  color: #fff59d;
+}
+
 .site-header h1 {
   margin: 0;
   font-size: clamp(1.5rem, 4vw, 2rem);
