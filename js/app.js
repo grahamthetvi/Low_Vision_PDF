@@ -11,8 +11,7 @@ let pdfWorker = null;
 /** @type {Worker | null} */
 let splitWorker = null;
 
-/** @type {ArrayBuffer | null} */
-let pdfBufferCopy = null;
+let pdfLoaded = false;
 let pageCount = 0;
 /** @type {string[]} */
 let outputObjectUrls = [];
@@ -180,7 +179,7 @@ async function loadPdfIntoWorker(buffer) {
     { type: "load", buffer: copy },
     [copy],
   );
-  pdfBufferCopy = buffer.slice(0);
+  pdfLoaded = true;
   return Number(res.payload?.pageCount || 0);
 }
 
@@ -213,7 +212,7 @@ async function runReflow() {
   clearOutputUrls();
   els.undoTrim.hidden = true;
 
-  if (!pdfBufferCopy || pageCount < 1) {
+  if (!pdfLoaded || pageCount < 1) {
     setStatus("Select a PDF first.");
     return;
   }
@@ -354,6 +353,7 @@ function wireEvents() {
     els.previewBlock.hidden = true;
     els.undoTrim.hidden = true;
     pageCount = 0;
+    pdfLoaded = false;
     els.extractedText.value = "";
 
     if (!file) {

@@ -346,3 +346,66 @@ input[type="file"]:focus-visible {
     gap: 1rem 1.5rem;
   }
 }
+
+@media print {
+  @page {
+    margin: 0.5in;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .skip-link,
+  .site-header,
+  .site-footer,
+  .panel,
+  .status-region,
+  #step-upload,
+  #step-config,
+  #step-verify,
+  #step-process {
+    display: none !important;
+  }
+
+  .main,
+  .main-column,
+  .output-bleed,
+  .output-container {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  .output-block {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    page-break-after: always;
+    break-after: page;
+    margin: 0;
+    padding: 0;
+  }
+
+  .output-block:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+
+  .output-label {
+    font-size: 0.9rem;
+    margin: 0 0 0.25rem;
+    color: #000000 !important;
+  }
+
+  .output-img {
+    width: 100%;
+    max-height: 9.5in;
+    height: auto;
+    object-fit: contain;
+    border: none !important;
+    background: #ffffff !important;
+  }
+}
