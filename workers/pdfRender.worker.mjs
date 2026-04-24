@@ -25,7 +25,16 @@ async function ensurePdfJs() {
 
   if (typeof document === "undefined") {
     globalThis.document = {
-      createElement: () => ({ style: {} }),
+      /**
+       * PDF.js may call `createElement("canvas")` for font metrics, etc. A plain
+       * object stub has no getContext, which throws on some tag-heavy (e.g. PDF/UA) files.
+       */
+      createElement(tag) {
+        if (String(tag).toLowerCase() === "canvas") {
+          return new OffscreenCanvas(0, 0);
+        }
+        return { style: {} };
+      },
       documentElement: { style: {} },
       head: { appendChild: () => {} },
       body: { appendChild: () => {} },
