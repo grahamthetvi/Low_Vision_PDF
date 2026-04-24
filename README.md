@@ -14,7 +14,7 @@ Then visit `http://localhost:8080` in a modern browser.
 
 ## GitHub Pages
 
-Push this repository and enable Pages from the root (or set the site to publish the branch that contains `index.html`). If the site is served from a subpath, relative URLs in this project still resolve correctly.
+In the repository **Settings → Pages**, set **Source** to **GitHub Actions**. Pushes to `main` or `master` run `.github/workflows/deploy-pages.yml`, which publishes `index.html`, `css/`, `js/`, and `workers/` plus the `CNAME` file for **lowvisionpdf.com**. Point that domain’s DNS to GitHub Pages as documented by GitHub, then add the custom hostname under Pages settings. If the site is served from a subpath, relative URLs in this project still resolve correctly.
 
 ## Offline / air‑gapped use
 
