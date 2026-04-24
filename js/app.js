@@ -45,7 +45,9 @@ const els = {
  */
 function postWorkerRequest(worker, message, transfer) {
   return new Promise((resolve, reject) => {
-    const requestId = crypto.randomUUID();
+    const requestId = (typeof crypto !== "undefined" && crypto.randomUUID) 
+      ? crypto.randomUUID() 
+      : Math.random().toString(36).slice(2) + Date.now().toString(36);
 
     function onMessage(ev) {
       const data = ev.data;
@@ -474,7 +476,7 @@ function wireEvents() {
       return;
     }
 
-    if (file.type !== "application/pdf") {
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
       setStatus("Please choose a PDF file.");
       return;
     }
