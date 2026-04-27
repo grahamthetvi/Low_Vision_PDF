@@ -199,7 +199,7 @@ function readDirection() {
 
 function readRotation() {
   const checked = document.querySelector('input[name="rotation"]:checked');
-  return Number(checked?.value || 0);
+  return Number(checked?.value || 90);
 }
 
 function applyTheme(dark) {
