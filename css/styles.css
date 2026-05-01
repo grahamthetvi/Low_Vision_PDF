@@ -586,7 +586,10 @@ input[type="file"]:focus-visible {
 
 .crop-canvas-wrapper {
   flex-grow: 1;
-  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
   border: 2px solid var(--border);
   margin-bottom: 1rem;
   background: #fff;
@@ -601,8 +604,8 @@ input[type="file"]:focus-visible {
   display: block;
   cursor: crosshair;
   max-width: 100%;
-  height: auto;
-  transform-origin: top left;
+  max-height: 100%;
+  object-fit: contain;
 }
 
 .crop-actions {
