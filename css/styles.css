@@ -569,7 +569,7 @@ input[type="file"]:focus-visible {
 .crop-card {
   max-width: 95vw;
   width: 100%;
-  max-height: 95vh;
+  height: 90vh;
   display: flex;
   flex-direction: column;
   padding: 1.5rem;
@@ -585,7 +585,7 @@ input[type="file"]:focus-visible {
 }
 
 .crop-canvas-wrapper {
-  flex-grow: 1;
+  flex: 1 1 0%;
   display: flex;
   justify-content: center;
   align-items: center;
