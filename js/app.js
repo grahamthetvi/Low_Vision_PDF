@@ -59,6 +59,16 @@ let pageCount = 0;
 let lastPdfBaseName = "";
 /** @type {string[]} */
 let outputObjectUrls = [];
+
+let splitMode = "auto";
+/** @type {{x:number, y:number, w:number, h:number}[]} */
+let cropRegions = [];
+let cropDrawing = false;
+let cropStart = { x: 0, y: 0 };
+let currentCropPreview = null;
+/** @type {ImageBitmap | null} */
+let cropPreviewImageBitmap = null;
+
 const els = {
   welcomeScreen: document.getElementById("welcome-screen"),
   welcomeContinue: document.getElementById("welcome-continue"),
@@ -79,6 +89,17 @@ const els = {
   debugPanel: document.getElementById("debug-panel"),
   debugClear: document.getElementById("debug-clear"),
   debugClose: document.getElementById("debug-close"),
+  splitModeRadios: document.querySelectorAll('input[name="split-mode"]'),
+  manualCropWarning: document.getElementById("manual-crop-warning"),
+  manualCropControls: document.getElementById("manual-crop-controls"),
+  autoCropControls: document.getElementById("auto-crop-controls"),
+  openCropModalBtn: document.getElementById("open-crop-modal"),
+  cropRegionsStatus: document.getElementById("crop-regions-status"),
+  cropModal: document.getElementById("crop-modal"),
+  cropCanvas: document.getElementById("crop-canvas"),
+  cropClearBtn: document.getElementById("crop-clear"),
+  cropCancelBtn: document.getElementById("crop-cancel"),
+  cropSaveBtn: document.getElementById("crop-save"),
 };
 
 /**
@@ -171,6 +192,14 @@ function setStatus(text) {
 function hideDownloadPdf() {
   els.downloadPdfBtn.hidden = true;
   els.downloadPdfBtn.disabled = true;
+}
+
+function updateCropRegionsStatus() {
+  if (cropRegions.length === 0) {
+    els.cropRegionsStatus.textContent = "No regions defined yet.";
+  } else {
+    els.cropRegionsStatus.textContent = `${cropRegions.length} region(s) defined.`;
+  }
 }
 
 function clearOutputUrls() {
@@ -280,6 +309,72 @@ async function renderFirstPagePreview() {
   els.previewBlock.hidden = false;
 }
 
+function drawCropCanvas() {
+  const canvas = els.cropCanvas;
+  const ctx = canvas.getContext("2d");
+  if (!ctx || !cropPreviewImageBitmap) return;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(cropPreviewImageBitmap, 0, 0, canvas.width, canvas.height);
+
+  ctx.strokeStyle = "red";
+  ctx.lineWidth = 3;
+  ctx.fillStyle = "rgba(255, 0, 0, 0.15)";
+
+  for (const r of cropRegions) {
+    const x = r.x * canvas.width;
+    const y = r.y * canvas.height;
+    const w = r.w * canvas.width;
+    const h = r.h * canvas.height;
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeRect(x, y, w, h);
+  }
+
+  if (currentCropPreview) {
+    ctx.strokeStyle = "blue";
+    ctx.fillStyle = "rgba(0, 0, 255, 0.2)";
+    const x = currentCropPreview.x * canvas.width;
+    const y = currentCropPreview.y * canvas.height;
+    const w = currentCropPreview.w * canvas.width;
+    const h = currentCropPreview.h * canvas.height;
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeRect(x, y, w, h);
+  }
+}
+
+async function openCropModal() {
+  if (!pdfWorker || pageCount < 1) {
+    setStatus("Load a PDF first.");
+    return;
+  }
+
+  setStatus("Loading preview for cropping…");
+  els.openCropModalBtn.disabled = true;
+
+  try {
+    const res = await postWorkerRequest(pdfWorker, {
+      type: "renderPage",
+      payload: { pageIndex: 1, maxLongEdge: 1600, trimMargins: false },
+    });
+    const bitmap = res.payload?.bitmap;
+    if (!(bitmap instanceof ImageBitmap)) throw new Error("Render failed");
+
+    if (cropPreviewImageBitmap) cropPreviewImageBitmap.close();
+    cropPreviewImageBitmap = bitmap;
+    els.cropCanvas.width = bitmap.width;
+    els.cropCanvas.height = bitmap.height;
+
+    drawCropCanvas();
+    els.cropModal.hidden = false;
+    setStatus("Ready.");
+  } catch (err) {
+    console.error(err);
+    setStatus("Failed to load crop preview.");
+  } finally {
+    els.openCropModalBtn.disabled = false;
+  }
+}
+
 async function runReflow() {
   ensureWorkers();
   clearOutputUrls();
@@ -293,7 +388,12 @@ async function runReflow() {
   const segments = readSegments();
   const direction = readDirection();
   const rotation = readRotation();
-  const trimMargins = els.trimMargins.checked;
+  const trimMargins = els.trimMargins.checked && splitMode === "auto";
+
+  if (splitMode === "manual" && cropRegions.length === 0) {
+    setStatus("Please define at least one crop region first.");
+    return;
+  }
 
   els.processBtn.disabled = true;
   els.extractBtn.disabled = true;
@@ -329,9 +429,11 @@ async function runReflow() {
           type: "split",
           payload: {
             imageBitmap: pageBitmap,
+            mode: splitMode,
             segments,
             direction,
             rotation,
+            cropRegions: splitMode === "manual" ? cropRegions : [],
           },
         },
         [pageBitmap],
@@ -583,6 +685,81 @@ function wireEvents() {
 
   els.debugClear.addEventListener("click", () => {
     getDebugOut().innerHTML = "";
+  });
+
+  els.splitModeRadios.forEach((radio) => {
+    radio.addEventListener("change", (e) => {
+      splitMode = e.target.value;
+      if (splitMode === "manual") {
+        els.manualCropWarning.hidden = false;
+        els.manualCropControls.hidden = false;
+        els.autoCropControls.hidden = true;
+      } else {
+        els.manualCropWarning.hidden = true;
+        els.manualCropControls.hidden = true;
+        els.autoCropControls.hidden = false;
+      }
+    });
+  });
+
+  els.openCropModalBtn.addEventListener("click", () => {
+    void openCropModal();
+  });
+
+  els.cropClearBtn.addEventListener("click", () => {
+    cropRegions = [];
+    currentCropPreview = null;
+    drawCropCanvas();
+  });
+
+  els.cropCancelBtn.addEventListener("click", () => {
+    els.cropModal.hidden = true;
+  });
+
+  els.cropSaveBtn.addEventListener("click", () => {
+    els.cropModal.hidden = true;
+    updateCropRegionsStatus();
+  });
+
+  function getCropMousePos(e) {
+    const rect = els.cropCanvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    return { x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) };
+  }
+
+  els.cropCanvas.addEventListener("mousedown", (e) => {
+    cropDrawing = true;
+    cropStart = getCropMousePos(e);
+    currentCropPreview = { x: cropStart.x, y: cropStart.y, w: 0, h: 0 };
+  });
+
+  els.cropCanvas.addEventListener("mousemove", (e) => {
+    if (!cropDrawing) return;
+    const pos = getCropMousePos(e);
+    const x = Math.min(cropStart.x, pos.x);
+    const y = Math.min(cropStart.y, pos.y);
+    const w = Math.abs(pos.x - cropStart.x);
+    const h = Math.abs(pos.y - cropStart.y);
+    currentCropPreview = { x, y, w, h };
+    drawCropCanvas();
+  });
+
+  els.cropCanvas.addEventListener("mouseup", () => {
+    if (!cropDrawing) return;
+    cropDrawing = false;
+    if (currentCropPreview && currentCropPreview.w > 0.01 && currentCropPreview.h > 0.01) {
+      cropRegions.push(currentCropPreview);
+    }
+    currentCropPreview = null;
+    drawCropCanvas();
+  });
+
+  els.cropCanvas.addEventListener("mouseleave", () => {
+    if (!cropDrawing) return;
+    cropDrawing = false;
+    currentCropPreview = null;
+    drawCropCanvas();
   });
 }
 

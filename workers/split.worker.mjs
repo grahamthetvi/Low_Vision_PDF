@@ -30,16 +30,31 @@ function rotateImageBitmap(src, degrees) {
 
 /**
  * @param {ImageBitmap} source
- * @param {{ segments: number; direction: 'horizontal' | 'vertical'; rotation: number }} opts
+ * @param {{ mode?: 'auto' | 'manual'; segments?: number; direction?: 'horizontal' | 'vertical'; rotation: number; cropRegions?: {x:number, y:number, w:number, h:number}[] }} opts
  * @returns {ImageBitmap[]}
  */
 function splitBitmap(source, opts) {
-  const { segments, direction, rotation } = opts;
+  const { mode = 'auto', segments = 2, direction = 'horizontal', rotation = 0, cropRegions = [] } = opts;
   const w = source.width;
   const h = source.height;
   const parts = [];
 
-  if (direction === "horizontal") {
+  if (mode === 'manual') {
+    for (const region of cropRegions) {
+      const sx = Math.max(0, Math.floor(region.x * w));
+      const sy = Math.max(0, Math.floor(region.y * h));
+      const sw = Math.min(w - sx, Math.floor(region.w * w));
+      const sh = Math.min(h - sy, Math.floor(region.h * h));
+      
+      if (sw > 0 && sh > 0) {
+        const strip = new OffscreenCanvas(sw, sh);
+        strip.getContext("2d").drawImage(source, sx, sy, sw, sh, 0, 0, sw, sh);
+        let bmp = strip.transferToImageBitmap();
+        bmp = rotateImageBitmap(bmp, rotation);
+        parts.push(bmp);
+      }
+    }
+  } else if (direction === "horizontal") {
     const base = Math.floor(h / segments);
     for (let i = 0; i < segments; i++) {
       const sy = i * base;
@@ -74,11 +89,13 @@ self.onmessage = (event) => {
 
   try {
     if (type === "split") {
-      const { imageBitmap, segments, direction, rotation } = payload;
+      const { imageBitmap, mode, segments, direction, rotation, cropRegions } = payload;
       const bitmaps = splitBitmap(imageBitmap, {
+        mode,
         segments,
         direction,
         rotation,
+        cropRegions,
       });
       imageBitmap.close();
       self.postMessage(

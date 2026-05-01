@@ -166,7 +166,37 @@
           <h2 id="step-config-heading">Step 3: Configuration</h2>
 
           <fieldset class="fieldset">
-            <legend>Number of splitting segments</legend>
+            <legend>Splitting Mode</legend>
+            <div class="radio-row">
+              <label
+                ><input
+                  type="radio"
+                  name="split-mode"
+                  value="auto"
+                  checked
+                />
+                Automatic splitting</label
+              >
+              <label
+                ><input type="radio" name="split-mode" value="manual" />
+                Manual cropping</label
+              >
+            </div>
+            <div id="manual-crop-warning" class="status-region" role="alert" hidden style="margin-top: 1rem;">
+              <strong>Note:</strong> Manual cropping requires drawing regions on the screen and requires sight. If you are using a screen reader, please use Automatic splitting.
+            </div>
+          </fieldset>
+
+          <div id="manual-crop-controls" hidden>
+            <button type="button" id="open-crop-modal" class="primary-btn">
+              Define crop regions
+            </button>
+            <p id="crop-regions-status" class="hint">No regions defined yet.</p>
+          </div>
+
+          <div id="auto-crop-controls">
+            <fieldset class="fieldset">
+              <legend>Number of splitting segments</legend>
             <div class="radio-row">
               <label
                 ><input type="radio" name="segments" value="2" checked /> 2
@@ -240,6 +270,7 @@
           <p id="trim-desc" class="hint">
             Crops each page to the bounding box of visible ink before splitting.
           </p>
+          </div>
           <button
             type="button"
             id="undo-trim"
@@ -327,6 +358,32 @@
         <button id="debug-close" class="text-btn">Close</button>
       </div>
       <pre id="debug-output"></pre>
+    </div>
+
+    <div
+      id="crop-modal"
+      class="welcome-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="crop-title"
+      hidden
+    >
+      <div class="crop-card">
+        <h2 id="crop-title">Define Crop Regions</h2>
+        <p>
+          Click and drag on the image below to draw boxes around the content you
+          want on each new page. The regions you define will be applied to every
+          page of the document.
+        </p>
+        <div class="crop-canvas-wrapper">
+          <canvas id="crop-canvas"></canvas>
+        </div>
+        <div class="crop-actions">
+          <button type="button" id="crop-clear" class="secondary-btn">Clear All</button>
+          <button type="button" id="crop-cancel" class="secondary-btn">Cancel</button>
+          <button type="button" id="crop-save" class="primary-btn">Save Regions</button>
+        </div>
+      </div>
     </div>
 
     <script type="module" src="js/app.js"></script>

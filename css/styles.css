@@ -565,3 +565,54 @@ input[type="file"]:focus-visible {
   border: 1px solid var(--border);
   white-space: pre-wrap;
 }
+
+.crop-card {
+  max-width: 90vw;
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  border: 3px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+  box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.35);
+}
+
+.crop-card h2 {
+  margin-top: 0;
+  font-size: 1.35rem;
+}
+
+.crop-canvas-wrapper {
+  flex-grow: 1;
+  overflow: auto;
+  border: 2px solid var(--border);
+  margin-bottom: 1rem;
+  background: #fff;
+  position: relative;
+}
+
+[data-theme="dark"] .crop-canvas-wrapper {
+  background: #000;
+}
+
+#crop-canvas {
+  display: block;
+  cursor: crosshair;
+  max-width: 100%;
+  height: auto;
+  transform-origin: top left;
+}
+
+.crop-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: auto;
+}
+
+.crop-actions .primary-btn,
+.crop-actions .secondary-btn {
+  margin-bottom: 0;
+}
