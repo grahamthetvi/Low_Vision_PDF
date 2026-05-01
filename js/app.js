@@ -96,6 +96,7 @@ const els = {
   openCropModalBtn: document.getElementById("open-crop-modal"),
   cropRegionsStatus: document.getElementById("crop-regions-status"),
   cropModal: document.getElementById("crop-modal"),
+  cropModalInstructions: document.getElementById("crop-modal-instructions"),
   cropCanvas: document.getElementById("crop-canvas"),
   cropClearBtn: document.getElementById("crop-clear"),
   cropCancelBtn: document.getElementById("crop-cancel"),
@@ -195,10 +196,13 @@ function hideDownloadPdf() {
 }
 
 function updateCropRegionsStatus() {
+  const segments = readSegments();
   if (cropRegions.length === 0) {
-    els.cropRegionsStatus.textContent = "No regions defined yet.";
+    els.cropRegionsStatus.textContent = `No regions defined yet. Please draw ${segments} regions.`;
+  } else if (cropRegions.length < segments) {
+    els.cropRegionsStatus.textContent = `${cropRegions.length} of ${segments} region(s) defined.`;
   } else {
-    els.cropRegionsStatus.textContent = `${cropRegions.length} region(s) defined.`;
+    els.cropRegionsStatus.textContent = `All ${segments} region(s) defined. Ready.`;
   }
 }
 
@@ -364,6 +368,9 @@ async function openCropModal() {
     els.cropCanvas.width = bitmap.width;
     els.cropCanvas.height = bitmap.height;
 
+    const segments = readSegments();
+    els.cropModalInstructions.textContent = `Click and drag on the image below to draw exactly ${segments} box(es). The regions you define will be applied to every page of the document.`;
+
     drawCropCanvas();
     els.cropModal.hidden = false;
     setStatus("Ready.");
@@ -390,8 +397,8 @@ async function runReflow() {
   const rotation = readRotation();
   const trimMargins = els.trimMargins.checked && splitMode === "auto";
 
-  if (splitMode === "manual" && cropRegions.length === 0) {
-    setStatus("Please define at least one crop region first.");
+  if (splitMode === "manual" && cropRegions.length !== segments) {
+    setStatus(`Please define exactly ${segments} crop region(s) first.`);
     return;
   }
 
@@ -694,10 +701,20 @@ function wireEvents() {
         els.manualCropWarning.hidden = false;
         els.manualCropControls.hidden = false;
         els.autoCropControls.hidden = true;
+        updateCropRegionsStatus();
       } else {
         els.manualCropWarning.hidden = true;
         els.manualCropControls.hidden = true;
         els.autoCropControls.hidden = false;
+      }
+    });
+  });
+
+  document.querySelectorAll('input[name="segments"]').forEach((radio) => {
+    radio.addEventListener("change", () => {
+      if (cropRegions.length > 0) {
+        cropRegions = [];
+        updateCropRegionsStatus();
       }
     });
   });
@@ -710,6 +727,7 @@ function wireEvents() {
     cropRegions = [];
     currentCropPreview = null;
     drawCropCanvas();
+    updateCropRegionsStatus();
   });
 
   els.cropCancelBtn.addEventListener("click", () => {
@@ -749,10 +767,16 @@ function wireEvents() {
     if (!cropDrawing) return;
     cropDrawing = false;
     if (currentCropPreview && currentCropPreview.w > 0.01 && currentCropPreview.h > 0.01) {
-      cropRegions.push(currentCropPreview);
+      const segments = readSegments();
+      if (cropRegions.length < segments) {
+        cropRegions.push(currentCropPreview);
+      } else {
+        cropRegions[cropRegions.length - 1] = currentCropPreview;
+      }
     }
     currentCropPreview = null;
     drawCropCanvas();
+    updateCropRegionsStatus();
   });
 
   els.cropCanvas.addEventListener("mouseleave", () => {

@@ -567,9 +567,9 @@ input[type="file"]:focus-visible {
 }
 
 .crop-card {
-  max-width: 90vw;
+  max-width: 95vw;
   width: 100%;
-  max-height: 90vh;
+  max-height: 95vh;
   display: flex;
   flex-direction: column;
   padding: 1.5rem;
@@ -587,9 +587,10 @@ input[type="file"]:focus-visible {
 .crop-canvas-wrapper {
   flex-grow: 1;
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: center;
   overflow: hidden;
+  min-height: 0;
   border: 2px solid var(--border);
   margin-bottom: 1rem;
   background: #fff;
@@ -605,7 +606,8 @@ input[type="file"]:focus-visible {
   cursor: crosshair;
   max-width: 100%;
   max-height: 100%;
-  object-fit: contain;
+  width: auto;
+  height: auto;
 }
 
 .crop-actions {

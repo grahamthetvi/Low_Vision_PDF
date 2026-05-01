@@ -166,6 +166,24 @@
           <h2 id="step-config-heading">Step 3: Configuration</h2>
 
           <fieldset class="fieldset">
+            <legend>Number of splitting segments</legend>
+            <div class="radio-row">
+              <label
+                ><input type="radio" name="segments" value="2" checked /> 2
+                segments</label
+              >
+              <label
+                ><input type="radio" name="segments" value="3" /> 3
+                segments</label
+              >
+              <label
+                ><input type="radio" name="segments" value="4" /> 4
+                segments</label
+              >
+            </div>
+          </fieldset>
+
+          <fieldset class="fieldset">
             <legend>Splitting Mode</legend>
             <div class="radio-row">
               <label
@@ -196,25 +214,7 @@
 
           <div id="auto-crop-controls">
             <fieldset class="fieldset">
-              <legend>Number of splitting segments</legend>
-            <div class="radio-row">
-              <label
-                ><input type="radio" name="segments" value="2" checked /> 2
-                segments</label
-              >
-              <label
-                ><input type="radio" name="segments" value="3" /> 3
-                segments</label
-              >
-              <label
-                ><input type="radio" name="segments" value="4" /> 4
-                segments</label
-              >
-            </div>
-          </fieldset>
-
-          <fieldset class="fieldset">
-            <legend>Splitting direction</legend>
+              <legend>Splitting direction</legend>
             <div class="radio-row">
               <label
                 ><input
@@ -370,10 +370,9 @@
     >
       <div class="crop-card">
         <h2 id="crop-title">Define Crop Regions</h2>
-        <p>
-          Click and drag on the image below to draw boxes around the content you
-          want on each new page. The regions you define will be applied to every
-          page of the document.
+        <p id="crop-modal-instructions">
+          Click and drag on the image below to draw boxes. The regions you
+          define will be applied to every page.
         </p>
         <div class="crop-canvas-wrapper">
           <canvas id="crop-canvas"></canvas>
