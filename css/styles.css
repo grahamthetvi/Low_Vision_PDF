@@ -45,6 +45,36 @@ body {
   background: var(--bg);
 }
 
+html[dir="rtl"] body {
+  font-family: "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
+}
+
+.lang-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.lang-switch label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.locale-select {
+  font: inherit;
+  padding: 0.4rem 0.5rem;
+  border: 2px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.locale-select:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
 .skip-link {
   position: absolute;
   left: -9999px;
@@ -196,7 +226,7 @@ body {
 
 .welcome-steps {
   margin: 0 0 1.25rem;
-  padding-left: 1.25rem;
+  padding-inline-start: 1.25rem;
   line-height: 1.6;
 }
 
