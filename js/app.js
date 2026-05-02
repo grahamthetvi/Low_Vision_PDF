@@ -3,6 +3,14 @@
  * splitting and rotation run in split.worker. No document data is sent remotely.
  */
 
+import {
+  t,
+  setLocale,
+  resolveInitialLocale,
+  getLocale,
+  translateWorkerErrorMessage,
+} from "./i18n.js";
+
 const PDF_WORKER_URL = new URL("../workers/pdfRender.worker.mjs", import.meta.url);
 const SPLIT_WORKER_URL = new URL("../workers/split.worker.mjs", import.meta.url);
 const PDF_LIB_URL = new URL("../vendor/pdf-lib/pdf-lib.esm.min.js", import.meta.url);
@@ -101,6 +109,7 @@ const els = {
   cropClearBtn: document.getElementById("crop-clear"),
   cropCancelBtn: document.getElementById("crop-cancel"),
   cropSaveBtn: document.getElementById("crop-save"),
+  localeSelect: document.getElementById("locale-select"),
 };
 
 /**
@@ -190,6 +199,11 @@ function setStatus(text) {
   els.statusRegion.textContent = text;
 }
 
+function userErrorMessage(err) {
+  const raw = err instanceof Error ? err.message : String(err);
+  return translateWorkerErrorMessage(raw);
+}
+
 function hideDownloadPdf() {
   els.downloadPdfBtn.hidden = true;
   els.downloadPdfBtn.disabled = true;
@@ -198,11 +212,14 @@ function hideDownloadPdf() {
 function updateCropRegionsStatus() {
   const segments = readSegments();
   if (cropRegions.length === 0) {
-    els.cropRegionsStatus.textContent = `No regions defined yet. Please draw ${segments} regions.`;
+    els.cropRegionsStatus.textContent = t("dynamicCopy.cropStatus.noRegionsYet", { N: segments });
   } else if (cropRegions.length < segments) {
-    els.cropRegionsStatus.textContent = `${cropRegions.length} of ${segments} region(s) defined.`;
+    els.cropRegionsStatus.textContent = t("dynamicCopy.cropStatus.someRegionsDefined", {
+      M: cropRegions.length,
+      N: segments,
+    });
   } else {
-    els.cropRegionsStatus.textContent = `All ${segments} region(s) defined. Ready.`;
+    els.cropRegionsStatus.textContent = t("dynamicCopy.cropStatus.allRegionsDefined", { N: segments });
   }
 }
 
@@ -217,7 +234,7 @@ function clearOutputUrls() {
 
 function reflowedDownloadFilename() {
   const base = lastPdfBaseName.replace(/\.pdf$/i, "") || "document";
-  return `${base}-reflowed.pdf`;
+  return t("dynamicCopy.download.filenamePattern", { basename: base });
 }
 
 function readSegments() {
@@ -244,11 +261,11 @@ function applyTheme(dark) {
   els.themeToggle.setAttribute("aria-pressed", dark ? "true" : "false");
   els.themeToggle.setAttribute(
     "aria-label",
-    dark
-      ? "Switch to light high-contrast theme"
-      : "Switch to dark high-contrast theme",
+    dark ? t("header.themeToggle.toLight") : t("header.themeToggle.toDark"),
   );
-  els.themeToggle.textContent = dark ? "Light mode" : "Dark mode";
+  els.themeToggle.textContent = dark
+    ? t("header.themeToggle.labelWhenDark")
+    : t("header.themeToggle.labelWhenLight");
   try {
     localStorage.setItem("lv-pdf-theme", dark ? "dark" : "light");
   } catch {
@@ -348,11 +365,11 @@ function drawCropCanvas() {
 
 async function openCropModal() {
   if (!pdfWorker || pageCount < 1) {
-    setStatus("Load a PDF first.");
+    setStatus(t("dynamicCopy.status.loadFirst"));
     return;
   }
 
-  setStatus("Loading preview for cropping…");
+  setStatus(t("dynamicCopy.status.loadingCropPreview"));
   els.openCropModalBtn.disabled = true;
 
   try {
@@ -369,14 +386,16 @@ async function openCropModal() {
     els.cropCanvas.height = bitmap.height;
 
     const segments = readSegments();
-    els.cropModalInstructions.textContent = `Click and drag on the image below to draw exactly ${segments} box(es). The regions you define will be applied to every page of the document.`;
+    els.cropModalInstructions.textContent = t("dynamicCopy.cropInstructionsDetailed", {
+      N: segments,
+    });
 
     drawCropCanvas();
     els.cropModal.hidden = false;
-    setStatus("Ready.");
+    setStatus(t("dynamicCopy.status.ready"));
   } catch (err) {
     console.error(err);
-    setStatus("Failed to load crop preview.");
+    setStatus(t("dynamicCopy.status.cropPreviewFailed"));
   } finally {
     els.openCropModalBtn.disabled = false;
   }
@@ -388,7 +407,7 @@ async function runReflow() {
   els.undoTrim.hidden = true;
 
   if (!pdfLoaded || pageCount < 1) {
-    setStatus("Select a PDF first.");
+    setStatus(t("dynamicCopy.status.selectPdfFirst"));
     return;
   }
 
@@ -398,7 +417,7 @@ async function runReflow() {
   const trimMargins = els.trimMargins.checked && splitMode === "auto";
 
   if (splitMode === "manual" && cropRegions.length !== segments) {
-    setStatus(`Please define exactly ${segments} crop region(s) first.`);
+    setStatus(t("dynamicCopy.status.defineExactRegions", { N: segments }));
     return;
   }
 
@@ -406,13 +425,13 @@ async function runReflow() {
   els.extractBtn.disabled = true;
   els.downloadPdfBtn.disabled = true;
   els.processBtn.setAttribute("aria-busy", "true");
-  setStatus("Processing…");
+  setStatus(t("dynamicCopy.status.processing"));
 
   const maxLongEdge = 2800;
 
   try {
     for (let p = 1; p <= pageCount; p++) {
-      setStatus(`Rendering page ${p} of ${pageCount}…`);
+      setStatus(t("dynamicCopy.status.renderingPage", { p, total: pageCount }));
 
       const renderRes = await postWorkerRequest(pdfWorker, {
         type: "renderPage",
@@ -428,7 +447,7 @@ async function runReflow() {
         throw new Error("Render failed: missing bitmap");
       }
 
-      setStatus(`Splitting page ${p} of ${pageCount}…`);
+      setStatus(t("dynamicCopy.status.splittingPage", { p, total: pageCount }));
 
       const splitRes = await postWorkerRequest(
         splitWorker,
@@ -455,7 +474,7 @@ async function runReflow() {
         const bmp = bitmaps[i];
         if (!(bmp instanceof ImageBitmap)) continue;
         const partNumber = i + 1;
-        const label = `Page ${p}: Part ${partNumber}`;
+        const label = t("dynamicCopy.outputSegments.label", { p, partNumber });
 
         const wrapper = document.createElement("div");
         wrapper.className = "output-block";
@@ -467,7 +486,7 @@ async function runReflow() {
 
         const img = document.createElement("img");
         img.className = "output-img";
-        img.alt = `${label} — reflowed segment`;
+        img.alt = t("dynamicCopy.outputSegments.imageAlt", { label });
         img.setAttribute("aria-labelledby", cap.id);
 
         const url = await imageBitmapToObjectUrl(bmp);
@@ -484,13 +503,13 @@ async function runReflow() {
     els.downloadPdfBtn.hidden = false;
     els.downloadPdfBtn.disabled = false;
     setStatus(
-      `Done. ${pageCount} page(s) reflowed into ${n} segment image(s). Use “Download reflowed PDF” when you are ready.`,
+      t("dynamicCopy.status.done", { pageCount, n }),
     );
   } catch (err) {
     console.error(err);
     hideDownloadPdf();
     setStatus(
-      `Error: ${err instanceof Error ? err.message : String(err)}`,
+      t("dynamicCopy.status.error", { message: userErrorMessage(err) }),
     );
   } finally {
     els.processBtn.disabled = false;
@@ -502,7 +521,7 @@ async function runReflow() {
 
 async function runTextExtraction() {
   if (!pdfWorker || pageCount < 1) {
-    els.extractedText.value = "Load a PDF before extracting text.";
+    els.extractedText.value = t("dynamicCopy.extractedText.loadFirst");
     return;
   }
 
@@ -510,19 +529,21 @@ async function runTextExtraction() {
   els.processBtn.disabled = true;
   els.downloadPdfBtn.disabled = true;
   els.extractBtn.setAttribute("aria-busy", "true");
-  setStatus("Extracting text…");
+  setStatus(t("dynamicCopy.status.extractingText"));
 
   try {
     const res = await postWorkerRequest(pdfWorker, { type: "extractText" });
     const text = res.payload?.text ?? "";
     els.extractedText.value = text.trim()
       ? text
-      : "No embedded text was found. This may be a scanned PDF; only OCR could read pixels, which is not enabled in this build.";
-    setStatus("Text extraction finished.");
+      : t("dynamicCopy.extractedText.noTextFound");
+    setStatus(t("dynamicCopy.status.extractionFinished"));
   } catch (err) {
     console.error(err);
-    els.extractedText.value = `Extraction failed: ${err instanceof Error ? err.message : String(err)}`;
-    setStatus("Text extraction failed.");
+    els.extractedText.value = t("dynamicCopy.extractedText.failed", {
+      message: userErrorMessage(err),
+    });
+    setStatus(t("dynamicCopy.status.extractionFailed"));
   } finally {
     els.extractBtn.disabled = false;
     els.processBtn.disabled = false;
@@ -534,13 +555,13 @@ async function runTextExtraction() {
 async function downloadReflowedPdf() {
   const imgs = els.outputContainer.querySelectorAll("img.output-img");
   if (imgs.length === 0) {
-    setStatus("Generate the reflowed view first.");
+    setStatus(t("dynamicCopy.status.generateFirst"));
     return;
   }
 
   els.downloadPdfBtn.disabled = true;
   els.downloadPdfBtn.setAttribute("aria-busy", "true");
-  setStatus("Building PDF…");
+  setStatus(t("dynamicCopy.status.buildingPdf"));
 
   try {
     const { PDFDocument } = await import(PDF_LIB_URL);
@@ -549,7 +570,7 @@ async function downloadReflowedPdf() {
     for (const img of imgs) {
       const res = await fetch(img.src);
       if (!res.ok) {
-        throw new Error("Could not read a segment image");
+        throw new Error(t("dynamicCopy.workerErrors.readSegmentImage"));
       }
       const bytes = new Uint8Array(await res.arrayBuffer());
       const pngImage = await pdfDoc.embedPng(bytes);
@@ -570,11 +591,11 @@ async function downloadReflowedPdf() {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    setStatus("Reflowed PDF download started.");
+    setStatus(t("dynamicCopy.status.downloadStarted"));
   } catch (err) {
     console.error(err);
     setStatus(
-      `Could not build PDF: ${err instanceof Error ? err.message : String(err)}`,
+      t("dynamicCopy.status.buildPdfFailed", { message: userErrorMessage(err) }),
     );
   } finally {
     els.downloadPdfBtn.disabled = false;
@@ -632,25 +653,25 @@ function wireEvents() {
     els.extractBtn.disabled = true;
 
     if (!file) {
-      setStatus("No file selected.");
+      setStatus(t("dynamicCopy.status.noFileSelected"));
       return;
     }
 
     if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
-      setStatus("Please choose a PDF file.");
+      setStatus(t("dynamicCopy.status.choosePdf"));
       return;
     }
 
     lastPdfBaseName = file.name || "document.pdf";
-    setStatus("Loading PDF…");
+    setStatus(t("dynamicCopy.status.loadingPdf"));
 
     try {
       const buffer = await file.arrayBuffer();
       pageCount = await loadPdfIntoWorker(buffer);
       setStatus(
         pageCount > 0
-          ? `Loaded ${pageCount} page(s). Review the preview, optionally extract text to verify, then configure and generate the reflowed view.`
-          : "Could not read page count.",
+          ? t("dynamicCopy.status.pdfLoaded", { pageCount })
+          : t("dynamicCopy.status.pageCountError"),
       );
       if (pageCount > 0) {
         els.extractBtn.disabled = false;
@@ -659,8 +680,8 @@ function wireEvents() {
     } catch (err) {
       console.error(err);
       pageCount = 0;
-      const errMsg = err instanceof Error ? err.message : String(err);
-      setStatus(`Could not load PDF: ${errMsg}`);
+      const errMsg = userErrorMessage(err);
+      setStatus(t("dynamicCopy.status.loadPdfFailed", { message: errMsg }));
     }
   });
 
@@ -792,8 +813,31 @@ function init() {
   initWelcome();
   els.extractBtn.disabled = true;
   hideDownloadPdf();
-  setStatus("Ready. Select a PDF to begin.");
+  setStatus(t("dynamicCopy.status.readyToSelect"));
   wireEvents();
 }
 
-init();
+async function boot() {
+  const initial = resolveInitialLocale();
+  await setLocale(initial);
+  if (els.localeSelect) {
+    els.localeSelect.value = getLocale();
+    els.localeSelect.addEventListener("change", () => {
+      void setLocale(els.localeSelect.value).then(() => {
+        updateCropRegionsStatus();
+        applyTheme(document.documentElement.getAttribute("data-theme") === "dark");
+        if (!pdfLoaded || pageCount < 1) {
+          setStatus(t("dynamicCopy.status.readyToSelect"));
+        }
+      });
+    });
+  }
+  document.addEventListener("lv-pdf-localechange", () => {
+    if (els.localeSelect) els.localeSelect.value = getLocale();
+    updateCropRegionsStatus();
+    applyTheme(document.documentElement.getAttribute("data-theme") === "dark");
+  });
+  init();
+}
+
+void boot();
