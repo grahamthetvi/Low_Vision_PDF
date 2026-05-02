@@ -1,5 +1,6 @@
 /**
- * Client-side i18n: loads locale JSON, applies to DOM via data-i18n, exposes t().
+ * Client-side i18n: loads locale modules via dynamic import (works with file://
+ * and HTTP; fetch() on JSON often fails on file origins).
  */
 
 const LOCALE_STORAGE_KEY = "lv-pdf-locale";
@@ -13,9 +14,9 @@ let currentLocale = DEFAULT_LOCALE;
 /** @type {object} */
 let messages = {};
 
-const LOCALE_URLS = {
-  en: new URL("../locales/en.json", import.meta.url).href,
-  ar: new URL("../locales/ar.json", import.meta.url).href,
+const LOCALE_IMPORTS = {
+  en: () => import("../locales/en.mjs"),
+  ar: () => import("../locales/ar.mjs"),
 };
 
 const RTL_LOCALES = new Set(["ar"]);
@@ -75,11 +76,10 @@ export function isRtl() {
 export async function setLocale(locale) {
   const next = locale === "ar" ? "ar" : "en";
   if (!bundleCache[next]) {
-    const url = LOCALE_URLS[next];
-    if (!url) return;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Failed to load locale ${next}`);
-    bundleCache[next] = await res.json();
+    const loader = LOCALE_IMPORTS[next];
+    if (!loader) return;
+    const mod = await loader();
+    bundleCache[next] = mod.default;
   }
   currentLocale = next;
   messages = bundleCache[next];
