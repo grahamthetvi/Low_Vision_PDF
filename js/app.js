@@ -819,25 +819,17 @@ function init() {
 
 async function boot() {
   const initial = resolveInitialLocale();
-  try {
-    await setLocale(initial);
-  } catch (err) {
-    console.error("Failed to load locale bundle:", err);
-  }
+  await setLocale(initial);
   if (els.localeSelect) {
     els.localeSelect.value = getLocale();
     els.localeSelect.addEventListener("change", () => {
-      void setLocale(els.localeSelect.value)
-        .then(() => {
-          updateCropRegionsStatus();
-          applyTheme(document.documentElement.getAttribute("data-theme") === "dark");
-          if (!pdfLoaded || pageCount < 1) {
-            setStatus(t("dynamicCopy.status.readyToSelect"));
-          }
-        })
-        .catch((err) => {
-          console.error("Failed to switch locale:", err);
-        });
+      void setLocale(els.localeSelect.value).then(() => {
+        updateCropRegionsStatus();
+        applyTheme(document.documentElement.getAttribute("data-theme") === "dark");
+        if (!pdfLoaded || pageCount < 1) {
+          setStatus(t("dynamicCopy.status.readyToSelect"));
+        }
+      });
     });
   }
   document.addEventListener("lv-pdf-localechange", () => {
