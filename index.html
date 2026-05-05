@@ -196,24 +196,6 @@
           <h2 id="step-config-heading" data-i18n="step3.heading">Step 3: Configuration</h2>
 
           <fieldset class="fieldset">
-            <legend data-i18n="step3.legendSegments">Number of splitting segments</legend>
-            <div class="radio-row">
-              <label
-                ><input type="radio" name="segments" value="2" checked />
-                <span data-i18n="step3.segmentsOptions.two">2 segments</span></label
-              >
-              <label
-                ><input type="radio" name="segments" value="3" />
-                <span data-i18n="step3.segmentsOptions.three">3 segments</span></label
-              >
-              <label
-                ><input type="radio" name="segments" value="4" />
-                <span data-i18n="step3.segmentsOptions.four">4 segments</span></label
-              >
-            </div>
-          </fieldset>
-
-          <fieldset class="fieldset">
             <legend data-i18n="step3.legendMode">Splitting Mode</legend>
             <div class="radio-row">
               <label
@@ -254,6 +236,24 @@
           </div>
 
           <div id="auto-crop-controls">
+            <fieldset class="fieldset">
+              <legend data-i18n="step3.legendSegments">Number of splitting segments</legend>
+              <div class="radio-row">
+                <label
+                  ><input type="radio" name="segments" value="2" checked />
+                  <span data-i18n="step3.segmentsOptions.two">2 segments</span></label
+                >
+                <label
+                  ><input type="radio" name="segments" value="3" />
+                  <span data-i18n="step3.segmentsOptions.three">3 segments</span></label
+                >
+                <label
+                  ><input type="radio" name="segments" value="4" />
+                  <span data-i18n="step3.segmentsOptions.four">4 segments</span></label
+                >
+              </div>
+            </fieldset>
+
             <fieldset class="fieldset">
               <legend data-i18n="step3.legendDirection">Splitting direction</legend>
               <div class="radio-row">
@@ -427,9 +427,16 @@
       <div class="crop-card">
         <h2 id="crop-title" data-i18n="cropModal.heading">Define Crop Regions</h2>
         <p id="crop-modal-instructions" data-i18n="cropModal.instructionBasic">
-          Click and drag on the image below to draw boxes. The regions you
-          define will be applied to every page.
+          Choose a page, then click and drag on the image below to draw boxes.
+          Repeat for each page.
         </p>
+        <div class="field-row crop-page-row">
+          <label for="crop-page-select" data-i18n="cropModal.pageLabel">Page</label>
+          <select id="crop-page-select" name="crop-page" aria-describedby="crop-modal-instructions"
+            data-i18n-aria-label="cropModal.pageAriaLabel"
+            aria-label="Which PDF page to crop"
+          ></select>
+        </div>
         <div class="crop-canvas-wrapper">
           <canvas id="crop-canvas"></canvas>
         </div>
