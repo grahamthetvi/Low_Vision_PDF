@@ -414,7 +414,8 @@ async function extractAllText() {
     chunks.push(`--- Page ${p} ---\n${pageText}\n`);
   }
 
-  return hasText ? chunks.join("\n") : "";
+  const text = hasText ? chunks.join("\n") : "";
+  return { text, hasEmbeddedText: hasText };
 }
 
 self.onmessage = async (event) => {
@@ -484,11 +485,11 @@ self.onmessage = async (event) => {
     }
 
     if (type === "extractText") {
-      const text = await extractAllText();
+      const { text, hasEmbeddedText } = await extractAllText();
       self.postMessage({
         requestId,
         type: "extractTextResult",
-        payload: { text },
+        payload: { text, hasEmbeddedText },
       });
       return;
     }
