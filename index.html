@@ -231,6 +231,36 @@
             </div>
           </fieldset>
 
+          <fieldset class="fieldset">
+            <legend data-i18n="step3.legendImageEnhance">Image enhancement</legend>
+            <div class="field-row checkbox-row">
+              <input
+                type="checkbox"
+                id="auto-contrast"
+                aria-describedby="auto-contrast-desc"
+              />
+              <label for="auto-contrast" data-i18n="step3.autoContrastHeading"
+                >Auto contrast</label
+              >
+            </div>
+            <p id="auto-contrast-desc" class="hint" data-i18n="step3.autoContrastDesc">
+              Stretches brightness on each page to help faded or low-contrast scans.
+            </p>
+            <div class="field-row checkbox-row">
+              <input
+                type="checkbox"
+                id="auto-deskew"
+                aria-describedby="auto-deskew-desc"
+              />
+              <label for="auto-deskew" data-i18n="step3.autoDeskewHeading"
+                >Auto tilt correction</label
+              >
+            </div>
+            <p id="auto-deskew-desc" class="hint" data-i18n="step3.autoDeskewDesc">
+              Straightens pages that were scanned slightly crooked (typical small skew only).
+            </p>
+          </fieldset>
+
           <div id="manual-crop-controls" hidden>
             <button type="button" id="open-crop-modal" class="primary-btn" data-i18n="step3.defineRegionsButton">
               Define crop regions
