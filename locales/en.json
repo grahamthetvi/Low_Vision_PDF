@@ -75,6 +75,8 @@
     },
     "trimMarginsHeading": "Detect and trim blank margins",
     "trimMarginsDesc": "Crops each page to the bounding box of visible ink before splitting.",
+    "smartCropHeading": "Smart Crop (content-aware splits)",
+    "smartCropDesc": "When splitting automatically, adjusts cut lines to gaps between text and images so blocks are not cut in half.",
     "undoAriaLabel": "Undo margin trimming and regenerate output using full pages",
     "undoButton": "Undo margin trim"
   },

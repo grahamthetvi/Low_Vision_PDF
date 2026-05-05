@@ -113,6 +113,7 @@ const els = {
   previewBlock: document.getElementById("preview-block"),
   previewCanvas: document.getElementById("preview-canvas"),
   trimMargins: document.getElementById("trim-margins"),
+  smartCrop: document.getElementById("smart-crop"),
   undoTrim: document.getElementById("undo-trim"),
   processBtn: document.getElementById("process-btn"),
   extractBtn: document.getElementById("extract-btn"),
@@ -344,6 +345,10 @@ function readRotation() {
   return Number(checked?.value || 90);
 }
 
+function readSmartCrop() {
+  return !!(els.smartCrop && els.smartCrop.checked);
+}
+
 function applyTheme(dark) {
   if (dark) {
     document.documentElement.setAttribute("data-theme", "dark");
@@ -503,6 +508,7 @@ async function runReflow() {
   const direction = readDirection();
   const rotation = readRotation();
   const trimMargins = els.trimMargins.checked && splitMode === "auto";
+  const smartCrop = splitMode === "auto" && readSmartCrop();
 
   if (splitMode === "manual") {
     for (let p = 1; p <= pageCount; p++) {
@@ -556,6 +562,7 @@ async function runReflow() {
               splitMode === "manual"
                 ? cropRegionsByPage[p] ?? []
                 : [],
+            smartCrop,
           },
         },
         [pageBitmap],

@@ -326,6 +326,22 @@
             <p id="trim-desc" class="hint" data-i18n="step3.trimMarginsDesc">
               Crops each page to the bounding box of visible ink before splitting.
             </p>
+
+            <div class="field-row checkbox-row">
+              <input
+                type="checkbox"
+                id="smart-crop"
+                checked
+                aria-describedby="smart-crop-desc"
+              />
+              <label for="smart-crop" data-i18n="step3.smartCropHeading"
+                >Smart Crop (content-aware splits)</label
+              >
+            </div>
+            <p id="smart-crop-desc" class="hint" data-i18n="step3.smartCropDesc">
+              When splitting automatically, adjusts cut lines to gaps between text
+              and images so blocks are not cut in half.
+            </p>
           </div>
           <button
             type="button"
