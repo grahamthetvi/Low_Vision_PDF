@@ -60,7 +60,7 @@ export default {
     "alertNote": "Note:",
     "alertManual": "Manual cropping requires drawing regions on the screen and requires sight. If you are using a screen reader, please use Automatic splitting.",
     "defineRegionsButton": "Define crop regions",
-    "noRegionsDefined": "No regions defined yet.",
+    "noRegionsDefined": "Open “Define crop regions” and draw one or more boxes on each page as needed.",
     "legendDirection": "Splitting direction",
     "directionOptions": {
       "horizontal": "Horizontal (top to bottom)",
@@ -97,25 +97,31 @@ export default {
   },
   "cropModal": {
     "heading": "Define Crop Regions",
-    "instructionBasic": "Click and drag on the image below to draw boxes. The regions you define will be applied to every page.",
+    "instructionBasic": "Choose a page, then click and drag on the image to draw boxes. You can add any number of regions per page. Repeat for each page.",
+    "pageLabel": "Page",
+    "pageAriaLabel": "Which PDF page to define crops for",
+    "pageOption": "Page {p} of {total}",
     "clearAll": "Clear All",
     "cancel": "Cancel",
     "save": "Save Regions"
   },
   "dynamicCopy": {
     "cropStatus": {
-      "noRegionsYet": "No regions defined yet. Please draw {N} regions.",
-      "someRegionsDefined": "{M} of {N} region(s) defined.",
-      "allRegionsDefined": "All {N} region(s) defined. Ready."
+      "manual": {
+        "noneYet": "No crop regions yet. Open “Define crop regions”, pick each page, and draw one or more boxes ({total} pages total).",
+        "needMorePages": "Crop regions still missing for page(s): {pages}{more}. ({done} of {total} pages have at least one region.)",
+        "morePages": " (+{count} more)",
+        "allPagesReady": "Every page has at least one crop region ({total} pages). Ready to generate."
+      }
     },
-    "cropInstructionsDetailed": "Click and drag on the image below to draw exactly {N} box(es). The regions you define will be applied to every page of the document.",
+    "cropInstructionsDetailed": "Select a page above, then click and drag to draw boxes on that page only. You can add any number of regions per page. Switch pages and repeat until every page is covered ({total} pages).",
     "status": {
       "loadFirst": "Load a PDF first.",
       "loadingCropPreview": "Loading preview for cropping…",
       "ready": "Ready.",
       "cropPreviewFailed": "Failed to load crop preview.",
       "selectPdfFirst": "Select a PDF first.",
-      "defineExactRegions": "Please define exactly {N} crop region(s) first.",
+      "manualCropMissingPage": "Manual cropping: page {p} of {total} has no crop regions. Define at least one region for every page.",
       "processing": "Processing…",
       "renderingPage": "Rendering page {p} of {total}…",
       "splittingPage": "Splitting page {p} of {total}…",

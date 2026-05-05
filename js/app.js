@@ -92,6 +92,10 @@ let lastPdfBaseName = "";
 let outputObjectUrls = [];
 
 let splitMode = "auto";
+/** @type {Record<number, {x:number, y:number, w:number, h:number}[]>} */
+let cropRegionsByPage = {};
+/** Working copy for the page currently shown in the crop modal (1-based index). */
+let cropModalPageIndex = 1;
 /** @type {{x:number, y:number, w:number, h:number}[]} */
 let cropRegions = [];
 let cropDrawing = false;
@@ -132,6 +136,7 @@ const els = {
   cropClearBtn: document.getElementById("crop-clear"),
   cropCancelBtn: document.getElementById("crop-cancel"),
   cropSaveBtn: document.getElementById("crop-save"),
+  cropPageSelect: document.getElementById("crop-page-select"),
   localeSelect: document.getElementById("locale-select"),
 };
 
@@ -233,17 +238,81 @@ function hideDownloadPdf() {
 }
 
 function updateCropRegionsStatus() {
-  const segments = readSegments();
-  if (cropRegions.length === 0) {
-    els.cropRegionsStatus.textContent = t("dynamicCopy.cropStatus.noRegionsYet", { N: segments });
-  } else if (cropRegions.length < segments) {
-    els.cropRegionsStatus.textContent = t("dynamicCopy.cropStatus.someRegionsDefined", {
-      M: cropRegions.length,
-      N: segments,
+  if (splitMode !== "manual" || pageCount < 1) {
+    return;
+  }
+
+  let defined = 0;
+  /** @type {number[]} */
+  const missing = [];
+  for (let p = 1; p <= pageCount; p++) {
+    const n = cropRegionsByPage[p]?.length ?? 0;
+    if (n > 0) defined++;
+    else missing.push(p);
+  }
+
+  if (defined === 0) {
+    els.cropRegionsStatus.textContent = t("dynamicCopy.cropStatus.manual.noneYet", {
+      total: pageCount,
+    });
+  } else if (missing.length > 0) {
+    const maxShow = 12;
+    const shown = missing.slice(0, maxShow);
+    const more =
+      missing.length > maxShow
+        ? t("dynamicCopy.cropStatus.manual.morePages", {
+            count: missing.length - maxShow,
+          })
+        : "";
+    els.cropRegionsStatus.textContent = t("dynamicCopy.cropStatus.manual.needMorePages", {
+      done: defined,
+      total: pageCount,
+      pages: shown.join(", "),
+      more,
     });
   } else {
-    els.cropRegionsStatus.textContent = t("dynamicCopy.cropStatus.allRegionsDefined", { N: segments });
+    els.cropRegionsStatus.textContent = t("dynamicCopy.cropStatus.manual.allPagesReady", {
+      total: pageCount,
+    });
   }
+}
+
+/**
+ * Persist the in-modal crop list to storage for the given page.
+ * @param {number} pageIndex 1-based
+ */
+function persistCropRegionsForModalPage(pageIndex) {
+  cropRegionsByPage[pageIndex] = cropRegions.map((r) => ({ ...r }));
+}
+
+function syncCropPageSelectOptions() {
+  const sel = els.cropPageSelect;
+  if (!sel) return;
+  sel.replaceChildren();
+  for (let p = 1; p <= pageCount; p++) {
+    const opt = document.createElement("option");
+    opt.value = String(p);
+    opt.textContent = t("cropModal.pageOption", { p, total: pageCount });
+    sel.append(opt);
+  }
+}
+
+/**
+ * @param {number} pageIndex 1-based
+ */
+async function loadCropPreviewForPage(pageIndex) {
+  const res = await postWorkerRequest(pdfWorker, {
+    type: "renderPage",
+    payload: { pageIndex, maxLongEdge: 1600, trimMargins: false },
+  });
+  const bitmap = res.payload?.bitmap;
+  if (!(bitmap instanceof ImageBitmap)) throw new Error("Render failed");
+
+  if (cropPreviewImageBitmap) cropPreviewImageBitmap.close();
+  cropPreviewImageBitmap = bitmap;
+  els.cropCanvas.width = bitmap.width;
+  els.cropCanvas.height = bitmap.height;
+  drawCropCanvas();
 }
 
 function clearOutputUrls() {
@@ -396,24 +465,20 @@ async function openCropModal() {
   els.openCropModalBtn.disabled = true;
 
   try {
-    const res = await postWorkerRequest(pdfWorker, {
-      type: "renderPage",
-      payload: { pageIndex: 1, maxLongEdge: 1600, trimMargins: false },
-    });
-    const bitmap = res.payload?.bitmap;
-    if (!(bitmap instanceof ImageBitmap)) throw new Error("Render failed");
+    syncCropPageSelectOptions();
+    cropModalPageIndex = Math.min(Math.max(1, cropModalPageIndex), pageCount);
+    if (els.cropPageSelect) {
+      els.cropPageSelect.value = String(cropModalPageIndex);
+    }
 
-    if (cropPreviewImageBitmap) cropPreviewImageBitmap.close();
-    cropPreviewImageBitmap = bitmap;
-    els.cropCanvas.width = bitmap.width;
-    els.cropCanvas.height = bitmap.height;
+    cropRegions = (cropRegionsByPage[cropModalPageIndex] ?? []).map((r) => ({ ...r }));
 
-    const segments = readSegments();
     els.cropModalInstructions.textContent = t("dynamicCopy.cropInstructionsDetailed", {
-      N: segments,
+      total: pageCount,
     });
 
-    drawCropCanvas();
+    await loadCropPreviewForPage(cropModalPageIndex);
+
     els.cropModal.hidden = false;
     setStatus(t("dynamicCopy.status.ready"));
   } catch (err) {
@@ -439,9 +504,14 @@ async function runReflow() {
   const rotation = readRotation();
   const trimMargins = els.trimMargins.checked && splitMode === "auto";
 
-  if (splitMode === "manual" && cropRegions.length !== segments) {
-    setStatus(t("dynamicCopy.status.defineExactRegions", { N: segments }));
-    return;
+  if (splitMode === "manual") {
+    for (let p = 1; p <= pageCount; p++) {
+      const regs = cropRegionsByPage[p];
+      if (!regs || regs.length === 0) {
+        setStatus(t("dynamicCopy.status.manualCropMissingPage", { p, total: pageCount }));
+        return;
+      }
+    }
   }
 
   els.processBtn.disabled = true;
@@ -482,7 +552,10 @@ async function runReflow() {
             segments,
             direction,
             rotation,
-            cropRegions: splitMode === "manual" ? cropRegions : [],
+            cropRegions:
+              splitMode === "manual"
+                ? cropRegionsByPage[p] ?? []
+                : [],
           },
         },
         [pageBitmap],
@@ -681,19 +754,32 @@ function wireEvents() {
     clearOutputUrls();
     els.previewBlock.hidden = true;
     els.undoTrim.hidden = true;
+    if (!els.cropModal.hidden) {
+      els.cropModal.hidden = true;
+      persistCropRegionsForModalPage(cropModalPageIndex);
+    }
+    if (cropPreviewImageBitmap) {
+      cropPreviewImageBitmap.close();
+      cropPreviewImageBitmap = null;
+    }
     pageCount = 0;
     pdfLoaded = false;
     lastPdfBaseName = "";
+    cropRegionsByPage = {};
+    cropRegions = [];
+    cropModalPageIndex = 1;
     els.extractedText.value = "";
     els.extractBtn.disabled = true;
 
     if (!file) {
       setStatus(t("dynamicCopy.status.noFileSelected"));
+      if (splitMode === "manual") updateCropRegionsStatus();
       return;
     }
 
     if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
       setStatus(t("dynamicCopy.status.choosePdf"));
+      if (splitMode === "manual") updateCropRegionsStatus();
       return;
     }
 
@@ -710,6 +796,9 @@ function wireEvents() {
       );
       if (pageCount > 0) {
         els.extractBtn.disabled = false;
+      }
+      if (splitMode === "manual") {
+        updateCropRegionsStatus();
       }
       await renderFirstPagePreview();
     } catch (err) {
@@ -768,7 +857,8 @@ function wireEvents() {
 
   document.querySelectorAll('input[name="segments"]').forEach((radio) => {
     radio.addEventListener("change", () => {
-      if (cropRegions.length > 0) {
+      if (splitMode === "auto" && Object.keys(cropRegionsByPage).length > 0) {
+        cropRegionsByPage = {};
         cropRegions = [];
         updateCropRegionsStatus();
       }
@@ -779,18 +869,49 @@ function wireEvents() {
     void openCropModal();
   });
 
+  if (els.cropPageSelect) {
+    els.cropPageSelect.addEventListener("change", () => {
+      void (async () => {
+        const next = Number(els.cropPageSelect.value);
+        if (!Number.isFinite(next) || next < 1 || next > pageCount) return;
+
+        persistCropRegionsForModalPage(cropModalPageIndex);
+        cropModalPageIndex = next;
+        cropRegions = (cropRegionsByPage[cropModalPageIndex] ?? []).map((r) => ({
+          ...r,
+        }));
+
+        setStatus(t("dynamicCopy.status.loadingCropPreview"));
+        els.cropPageSelect.disabled = true;
+        try {
+          await loadCropPreviewForPage(cropModalPageIndex);
+          setStatus(t("dynamicCopy.status.ready"));
+        } catch (err) {
+          console.error(err);
+          setStatus(t("dynamicCopy.status.cropPreviewFailed"));
+        } finally {
+          els.cropPageSelect.disabled = false;
+        }
+      })();
+    });
+  }
+
   els.cropClearBtn.addEventListener("click", () => {
     cropRegions = [];
+    persistCropRegionsForModalPage(cropModalPageIndex);
     currentCropPreview = null;
     drawCropCanvas();
     updateCropRegionsStatus();
   });
 
   els.cropCancelBtn.addEventListener("click", () => {
+    persistCropRegionsForModalPage(cropModalPageIndex);
     els.cropModal.hidden = true;
+    updateCropRegionsStatus();
   });
 
   els.cropSaveBtn.addEventListener("click", () => {
+    persistCropRegionsForModalPage(cropModalPageIndex);
     els.cropModal.hidden = true;
     updateCropRegionsStatus();
   });
@@ -823,12 +944,8 @@ function wireEvents() {
     if (!cropDrawing) return;
     cropDrawing = false;
     if (currentCropPreview && currentCropPreview.w > 0.01 && currentCropPreview.h > 0.01) {
-      const segments = readSegments();
-      if (cropRegions.length < segments) {
-        cropRegions.push(currentCropPreview);
-      } else {
-        cropRegions[cropRegions.length - 1] = currentCropPreview;
-      }
+      cropRegions.push(currentCropPreview);
+      persistCropRegionsForModalPage(cropModalPageIndex);
     }
     currentCropPreview = null;
     drawCropCanvas();
@@ -869,6 +986,14 @@ async function boot() {
   }
   document.addEventListener("lv-pdf-localechange", () => {
     if (els.localeSelect) els.localeSelect.value = getLocale();
+    if (pageCount > 0) {
+      syncCropPageSelectOptions();
+      if (els.cropPageSelect) {
+        els.cropPageSelect.value = String(
+          Math.min(Math.max(1, cropModalPageIndex), pageCount),
+        );
+      }
+    }
     updateCropRegionsStatus();
     applyTheme(document.documentElement.getAttribute("data-theme") === "dark");
   });
