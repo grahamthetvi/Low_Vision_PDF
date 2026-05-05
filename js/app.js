@@ -10,6 +10,7 @@ import {
   getLocale,
   translateWorkerErrorMessage,
 } from "./i18n.js";
+import { runTesseractOnPdfPages } from "./tesseractOcr.js";
 
 const PDF_WORKER_URL = new URL("../workers/pdfRender.worker.mjs", import.meta.url);
 const SPLIT_WORKER_URL = new URL("../workers/split.worker.mjs", import.meta.url);
@@ -374,6 +375,17 @@ function buildRenderPayload(pageIndex, maxLongEdge, trimMargins) {
   };
 }
 
+/** Renders a page for OCR: neutral pipeline (no trim/contrast/deskew). */
+function buildOcrRenderPayload(pageIndex) {
+  return {
+    pageIndex,
+    maxLongEdge: 1800,
+    trimMargins: false,
+    autoContrast: false,
+    autoDeskew: false,
+  };
+}
+
 function applyTheme(dark) {
   if (dark) {
     document.documentElement.setAttribute("data-theme", "dark");
@@ -653,9 +665,34 @@ async function runTextExtraction() {
 
   try {
     const res = await postWorkerRequest(pdfWorker, { type: "extractText" });
-    const text = res.payload?.text ?? "";
-    els.extractedText.value = text.trim()
-      ? text
+    const embeddedText = res.payload?.text ?? "";
+    const hasEmbeddedText = !!res.payload?.hasEmbeddedText;
+
+    if (hasEmbeddedText && embeddedText.trim()) {
+      els.extractedText.value = embeddedText;
+      setStatus(t("dynamicCopy.status.extractionFinished"));
+      return;
+    }
+
+    const ocrText = await runTesseractOnPdfPages(
+      async (pageIndex) => {
+        const renderRes = await postWorkerRequest(pdfWorker, {
+          type: "renderPage",
+          payload: buildOcrRenderPayload(pageIndex),
+        });
+        const bitmap = renderRes.payload?.bitmap;
+        if (!(bitmap instanceof ImageBitmap)) {
+          throw new Error("Render failed: missing bitmap");
+        }
+        return bitmap;
+      },
+      pageCount,
+      getLocale(),
+      (key, vars) => setStatus(t(key, vars)),
+    );
+
+    els.extractedText.value = ocrText.trim()
+      ? ocrText
       : t("dynamicCopy.extractedText.noTextFound");
     setStatus(t("dynamicCopy.status.extractionFinished"));
   } catch (err) {
