@@ -33,7 +33,11 @@ export async function runTesseractOnPdfPages(
   onStatus,
 ) {
   onStatus("dynamicCopy.status.ocrLoadingEngine");
-  const { createWorker } = await import(/* webpackIgnore: true */ TESSERACT_MODULE_URL);
+  const mod = await import(/* webpackIgnore: true */ TESSERACT_MODULE_URL);
+  const createWorker = mod.default?.createWorker;
+  if (typeof createWorker !== "function") {
+    throw new Error("Tesseract.js default export is missing createWorker");
+  }
   const lang = tessLang(locale);
 
   const worker = await createWorker(lang, 1, {
