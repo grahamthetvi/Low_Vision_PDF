@@ -17,6 +17,29 @@ const PDF_LIB_URL = new URL("../vendor/pdf-lib/pdf-lib.esm.min.js", import.meta.
 
 const WELCOME_SEEN_KEY = "lv-pdf-welcome-seen";
 
+/** US Letter size in PDF points (1 pt = 1/72 in). Used to pad manual crops for predictable printing. */
+const LETTER_W_PT = 612;
+const LETTER_H_PT = 792;
+
+/**
+ * @param {number} imgW
+ * @param {number} imgH
+ * @returns {{ pageW: number; pageH: number; scale: number; drawW: number; drawH: number; x: number; y: number }}
+ */
+function letterBoxLayout(imgW, imgH) {
+  const sPortrait = Math.min(LETTER_W_PT / imgW, LETTER_H_PT / imgH);
+  const sLandscape = Math.min(LETTER_H_PT / imgW, LETTER_W_PT / imgH);
+  const useLandscape = sLandscape > sPortrait;
+  const pageW = useLandscape ? LETTER_H_PT : LETTER_W_PT;
+  const pageH = useLandscape ? LETTER_W_PT : LETTER_H_PT;
+  const scale = Math.min(pageW / imgW, pageH / imgH);
+  const drawW = imgW * scale;
+  const drawH = imgH * scale;
+  const x = (pageW - drawW) / 2;
+  const y = (pageH - drawH) / 2;
+  return { pageW, pageH, scale, drawW, drawH, x, y };
+}
+
 let _debugOut = null;
 function getDebugOut() {
   if (!_debugOut) _debugOut = document.getElementById("debug-output");
@@ -576,8 +599,20 @@ async function downloadReflowedPdf() {
       const pngImage = await pdfDoc.embedPng(bytes);
       const w = pngImage.width;
       const h = pngImage.height;
-      const page = pdfDoc.addPage([w, h]);
-      page.drawImage(pngImage, { x: 0, y: 0, width: w, height: h });
+
+      if (splitMode === "manual") {
+        const box = letterBoxLayout(w, h);
+        const page = pdfDoc.addPage([box.pageW, box.pageH]);
+        page.drawImage(pngImage, {
+          x: box.x,
+          y: box.y,
+          width: box.drawW,
+          height: box.drawH,
+        });
+      } else {
+        const page = pdfDoc.addPage([w, h]);
+        page.drawImage(pngImage, { x: 0, y: 0, width: w, height: h });
+      }
     }
 
     const outBytes = await pdfDoc.save();
