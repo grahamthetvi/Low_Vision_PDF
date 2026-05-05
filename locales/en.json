@@ -8,11 +8,11 @@
   },
   "welcomeDialog": {
     "heading": "Welcome to Low Vision PDF",
-    "description": "This tool helps you prepare a document that is easier to read with low vision. You upload a PDF in your browser (nothing is sent to a server). The app can show you the embedded text so you know it is the right file, then you choose how each page is split into larger segments. When you are done, you can print the result or download a new PDF made from those pages for printing at home.",
+    "description": "This tool helps you prepare a PDF for easier low-vision reading. All processing happens in your browser—nothing is uploaded to a server. After optional text extraction to verify the document, choose Automatic splitting to slice each page into larger strips, or Manual cropping to draw boxes on each page yourself (you can add any number of regions per page). Then generate the reflowed view and print, or download a new PDF. Manual downloads place each segment on a US Letter page with margins so printing fits predictably.",
     "bullet1": "Upload your PDF and check the first-page preview.",
     "bullet2": "Optional: extract text to verify the document.",
-    "bullet3": "Set splitting, direction, rotation, and margin options.",
-    "bullet4": "Generate the reflowed view, then download or use Print.",
+    "bullet3": "Configure layout: Automatic splitting uses segments, direction, rotation, and optional margin trimming; Manual cropping defines regions separately on every page.",
+    "bullet4": "Generate the reflowed view, then use Download reflowed PDF or your browser’s Print dialog.",
     "getStarted": "Get started"
   },
   "header": {
