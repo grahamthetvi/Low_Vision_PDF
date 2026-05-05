@@ -113,6 +113,9 @@ const els = {
   previewBlock: document.getElementById("preview-block"),
   previewCanvas: document.getElementById("preview-canvas"),
   trimMargins: document.getElementById("trim-margins"),
+  smartCrop: document.getElementById("smart-crop"),
+  autoContrast: document.getElementById("auto-contrast"),
+  autoDeskew: document.getElementById("auto-deskew"),
   undoTrim: document.getElementById("undo-trim"),
   processBtn: document.getElementById("process-btn"),
   extractBtn: document.getElementById("extract-btn"),
@@ -303,7 +306,7 @@ function syncCropPageSelectOptions() {
 async function loadCropPreviewForPage(pageIndex) {
   const res = await postWorkerRequest(pdfWorker, {
     type: "renderPage",
-    payload: { pageIndex, maxLongEdge: 1600, trimMargins: false },
+    payload: buildRenderPayload(pageIndex, 1600, false),
   });
   const bitmap = res.payload?.bitmap;
   if (!(bitmap instanceof ImageBitmap)) throw new Error("Render failed");
@@ -342,6 +345,33 @@ function readDirection() {
 function readRotation() {
   const checked = document.querySelector('input[name="rotation"]:checked');
   return Number(checked?.value || 90);
+}
+
+function readSmartCrop() {
+  return !!(els.smartCrop && els.smartCrop.checked);
+}
+
+function readAutoContrast() {
+  return !!(els.autoContrast && els.autoContrast.checked);
+}
+
+function readAutoDeskew() {
+  return !!(els.autoDeskew && els.autoDeskew.checked);
+}
+
+/**
+ * @param {number} pageIndex
+ * @param {number} maxLongEdge
+ * @param {boolean} trimMargins
+ */
+function buildRenderPayload(pageIndex, maxLongEdge, trimMargins) {
+  return {
+    pageIndex,
+    maxLongEdge,
+    trimMargins,
+    autoContrast: readAutoContrast(),
+    autoDeskew: readAutoDeskew(),
+  };
 }
 
 function applyTheme(dark) {
@@ -402,11 +432,7 @@ async function renderFirstPagePreview() {
   if (!pdfWorker || pageCount < 1) return;
   const res = await postWorkerRequest(pdfWorker, {
     type: "renderPage",
-    payload: {
-      pageIndex: 1,
-      maxLongEdge: 900,
-      trimMargins: false,
-    },
+    payload: buildRenderPayload(1, 900, false),
   });
   const bitmap = res.payload?.bitmap;
   if (!(bitmap instanceof ImageBitmap)) return;
@@ -503,6 +529,7 @@ async function runReflow() {
   const direction = readDirection();
   const rotation = readRotation();
   const trimMargins = els.trimMargins.checked && splitMode === "auto";
+  const smartCrop = splitMode === "auto" && readSmartCrop();
 
   if (splitMode === "manual") {
     for (let p = 1; p <= pageCount; p++) {
@@ -528,11 +555,7 @@ async function runReflow() {
 
       const renderRes = await postWorkerRequest(pdfWorker, {
         type: "renderPage",
-        payload: {
-          pageIndex: p,
-          maxLongEdge,
-          trimMargins,
-        },
+        payload: buildRenderPayload(p, maxLongEdge, trimMargins),
       });
 
       let pageBitmap = renderRes.payload?.bitmap;
@@ -556,6 +579,7 @@ async function runReflow() {
               splitMode === "manual"
                 ? cropRegionsByPage[p] ?? []
                 : [],
+            smartCrop,
           },
         },
         [pageBitmap],
@@ -743,6 +767,18 @@ function initWelcome() {
   });
 }
 
+async function refreshLivePreviews() {
+  if (!pdfLoaded || pageCount < 1 || !pdfWorker) return;
+  try {
+    await renderFirstPagePreview();
+    if (!els.cropModal.hidden) {
+      await loadCropPreviewForPage(cropModalPageIndex);
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+
 function wireEvents() {
   els.themeToggle.addEventListener("click", () => {
     const isDark = document.documentElement.getAttribute("data-theme") === "dark";
@@ -824,8 +860,20 @@ function wireEvents() {
   els.undoTrim.addEventListener("click", () => {
     els.trimMargins.checked = false;
     els.undoTrim.hidden = true;
+    void refreshLivePreviews();
     void runReflow();
   });
+
+  if (els.autoContrast) {
+    els.autoContrast.addEventListener("change", () => {
+      void refreshLivePreviews();
+    });
+  }
+  if (els.autoDeskew) {
+    els.autoDeskew.addEventListener("change", () => {
+      void refreshLivePreviews();
+    });
+  }
 
   els.debugToggle.addEventListener("click", () => {
     els.debugPanel.hidden = !els.debugPanel.hidden;

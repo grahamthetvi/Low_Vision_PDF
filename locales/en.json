@@ -61,6 +61,11 @@
     "alertManual": "Manual cropping requires drawing regions on the screen and requires sight. If you are using a screen reader, please use Automatic splitting.",
     "defineRegionsButton": "Define crop regions",
     "noRegionsDefined": "Open “Define crop regions” and draw one or more boxes on each page as needed.",
+    "legendImageEnhance": "Image enhancement",
+    "autoContrastHeading": "Auto contrast",
+    "autoContrastDesc": "Stretches brightness on each page to help faded or low-contrast scans.",
+    "autoDeskewHeading": "Auto tilt correction",
+    "autoDeskewDesc": "Straightens pages that were scanned slightly crooked (typical small skew only).",
     "legendDirection": "Splitting direction",
     "directionOptions": {
       "horizontal": "Horizontal (top to bottom)",
@@ -75,6 +80,8 @@
     },
     "trimMarginsHeading": "Detect and trim blank margins",
     "trimMarginsDesc": "Crops each page to the bounding box of visible ink before splitting.",
+    "smartCropHeading": "Smart Crop (content-aware splits)",
+    "smartCropDesc": "When splitting automatically, adjusts cut lines to gaps between text and images so blocks are not cut in half.",
     "undoAriaLabel": "Undo margin trimming and regenerate output using full pages",
     "undoButton": "Undo margin trim"
   },
