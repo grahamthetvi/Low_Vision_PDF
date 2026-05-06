@@ -18,7 +18,7 @@ const PDF_LIB_URL = new URL("../vendor/pdf-lib/pdf-lib.esm.min.js", import.meta.
 
 const WELCOME_SEEN_KEY = "lv-pdf-welcome-seen";
 
-/** US Letter size in PDF points (1 pt = 1/72 in). Used to pad manual crops for predictable printing. */
+/** US Letter size in PDF points (1 pt = 1/72 in). Export pages use this so printing on Letter is predictable. */
 const LETTER_W_PT = 612;
 const LETTER_H_PT = 792;
 
@@ -734,19 +734,14 @@ async function downloadReflowedPdf() {
       const w = pngImage.width;
       const h = pngImage.height;
 
-      if (splitMode === "manual") {
-        const box = letterBoxLayout(w, h);
-        const page = pdfDoc.addPage([box.pageW, box.pageH]);
-        page.drawImage(pngImage, {
-          x: box.x,
-          y: box.y,
-          width: box.drawW,
-          height: box.drawH,
-        });
-      } else {
-        const page = pdfDoc.addPage([w, h]);
-        page.drawImage(pngImage, { x: 0, y: 0, width: w, height: h });
-      }
+      const box = letterBoxLayout(w, h);
+      const page = pdfDoc.addPage([box.pageW, box.pageH]);
+      page.drawImage(pngImage, {
+        x: box.x,
+        y: box.y,
+        width: box.drawW,
+        height: box.drawH,
+      });
     }
 
     const outBytes = await pdfDoc.save();
