@@ -157,7 +157,7 @@ export default {
       "filenamePattern": "{basename}-reflowed.pdf"
     },
     "email": {
-      "supportSubjectUrlEncoded": "Graham%20Visual%20Acuity%20Tester%20Support"
+      "supportSubjectUrlEncoded": "Low%20Vision%20PDF%20Support"
     },
     "workerErrors": {
       "renderFailed": "Render failed.",
