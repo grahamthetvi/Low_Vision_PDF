@@ -396,26 +396,47 @@ async function renderPageToBitmap(
   return canvas.transferToImageBitmap();
 }
 
-async function extractAllText() {
+/**
+ * Extract embedded text from selected pages (or all pages when pageIndices omitted).
+ * @param {number[] | undefined} pageIndices 1-based page numbers
+ */
+async function extractAllText(pageIndices) {
   if (!pdfDocument) throw new Error("No PDF loaded");
   const numPages = pdfDocument.numPages;
+  const pages =
+    Array.isArray(pageIndices) && pageIndices.length > 0
+      ? [
+          ...new Set(
+            pageIndices
+              .map((n) => Math.floor(Number(n)))
+              .filter((p) => p >= 1 && p <= numPages),
+          ),
+        ].sort((a, b) => a - b)
+      : Array.from({ length: numPages }, (_, i) => i + 1);
+
   const chunks = [];
   let hasText = false;
 
-  for (let p = 1; p <= numPages; p++) {
+  for (const p of pages) {
     const page = await pdfDocument.getPage(p);
     const textContent = await page.getTextContent();
     const pageText = textContent.items
       .filter((item) => "str" in item && item.str)
       .map((item) => item.str)
       .join(" ");
-    
+
     if (pageText.trim()) hasText = true;
     chunks.push(`--- Page ${p} ---\n${pageText}\n`);
   }
 
   const text = hasText ? chunks.join("\n") : "";
-  return { text, hasEmbeddedText: hasText };
+  return {
+    text,
+    hasEmbeddedText: hasText,
+    pageIndices: pages,
+    sampled: pages.length < numPages,
+    totalPages: numPages,
+  };
 }
 
 self.onmessage = async (event) => {
@@ -485,11 +506,19 @@ self.onmessage = async (event) => {
     }
 
     if (type === "extractText") {
-      const { text, hasEmbeddedText } = await extractAllText();
+      const pageIndices = msg.payload?.pageIndices;
+      const { text, hasEmbeddedText, pageIndices: usedPages, sampled, totalPages } =
+        await extractAllText(pageIndices);
       self.postMessage({
         requestId,
         type: "extractTextResult",
-        payload: { text, hasEmbeddedText },
+        payload: {
+          text,
+          hasEmbeddedText,
+          pageIndices: usedPages,
+          sampled,
+          totalPages,
+        },
       });
       return;
     }

@@ -22,16 +22,23 @@ function tessLang(locale) {
 
 /**
  * @param {(pageIndex: number) => Promise<ImageBitmap>} renderPageBitmap 1-based page index
- * @param {number} pageCount
+ * @param {number[]} pageIndices 1-based pages to OCR (already sampled/capped by caller)
+ * @param {number} documentPageCount Total pages in the PDF (for status copy)
  * @param {string} locale
  * @param {(statusKey: string, vars?: Record<string, string | number>) => void} onStatus
  */
 export async function runTesseractOnPdfPages(
   renderPageBitmap,
-  pageCount,
+  pageIndices,
+  documentPageCount,
   locale,
   onStatus,
 ) {
+  const pages = Array.isArray(pageIndices)
+    ? pageIndices.map((n) => Math.floor(Number(n))).filter((p) => p >= 1)
+    : [];
+  if (pages.length === 0) return "";
+
   onStatus("dynamicCopy.status.ocrLoadingEngine");
   const { createWorker } = await import(/* webpackIgnore: true */ TESSERACT_MODULE_URL);
   const lang = tessLang(locale);
@@ -44,9 +51,17 @@ export async function runTesseractOnPdfPages(
   });
 
   const parts = [];
+  const sampleCount = pages.length;
+  const total = documentPageCount || sampleCount;
   try {
-    for (let p = 1; p <= pageCount; p++) {
-      onStatus("dynamicCopy.status.ocrPage", { p, total: pageCount });
+    for (let i = 0; i < pages.length; i++) {
+      const p = pages[i];
+      onStatus("dynamicCopy.status.ocrPage", {
+        p,
+        i: i + 1,
+        sampleCount,
+        total,
+      });
       let bitmap;
       try {
         bitmap = await renderPageBitmap(p);

@@ -38,7 +38,7 @@ export default {
   },
   "step2": {
     "heading": "Step 2: Verify (text extraction)",
-    "description": "Embedded text is read with the same PDF engine used for rendering. If the PDF has no embedded text (for example a scan), Tesseract runs in your browser (WASM) to OCR each page—nothing is uploaded. Use this after upload to confirm you have the correct document before you adjust layout options.",
+    "description": "Embedded text is read with the same PDF engine used for rendering. If the PDF has no embedded text (for example a scan), Tesseract runs in your browser (WASM)—nothing is uploaded. On large documents, only a verification sample of pages is read (OCR is capped more tightly) so this step stays responsive. Use this after upload to confirm you have the correct document before you adjust layout options.",
     "extractButton": "Extract text for verification",
     "extractedTextHeading": "Extracted document text",
     "textareaAriaLabel": "Plain text extracted from the PDF for verification",
@@ -128,9 +128,12 @@ export default {
       "done": "Done. {pageCount} page(s) reflowed into {n} segment image(s). Use “Download reflowed PDF” when you are ready.",
       "error": "Error: {message}",
       "extractingText": "Extracting text…",
+      "extractingTextSample": "Extracting verification sample from pages {pages} of {total}…",
       "ocrLoadingEngine": "Loading OCR engine (WASM) and language data…",
-      "ocrPage": "Running OCR on page {p} of {total}…",
+      "ocrSampleNotice": "No embedded text found. Running OCR on verification sample (pages {pages} of {total})…",
+      "ocrPage": "Running OCR on page {p} ({i} of {sampleCount}; document has {total} pages)…",
       "extractionFinished": "Text extraction finished.",
+      "extractionFinishedSample": "Text extraction finished (verification sample: pages {pages} of {total}).",
       "extractionFailed": "Text extraction failed.",
       "buildingPdf": "Building PDF…",
       "downloadStarted": "Reflowed PDF download started.",
@@ -146,6 +149,7 @@ export default {
     },
     "extractedText": {
       "loadFirst": "Load a PDF before extracting text.",
+      "sampleNote": "[Verification sample: pages {pages} of {total}]",
       "noTextFound": "No text could be extracted (no embedded text, and OCR did not return readable text).",
       "failed": "Extraction failed: {message}"
     },
