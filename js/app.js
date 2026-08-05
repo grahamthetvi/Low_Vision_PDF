@@ -10,6 +10,7 @@ import {
   getLocale,
   translateWorkerErrorMessage,
 } from "./i18n.js";
+import { runTesseractOnPdfPages } from "./tesseractOcr.js";
 
 const PDF_WORKER_URL = new URL("../workers/pdfRender.worker.mjs", import.meta.url);
 const SPLIT_WORKER_URL = new URL("../workers/split.worker.mjs", import.meta.url);
@@ -17,7 +18,7 @@ const PDF_LIB_URL = new URL("../vendor/pdf-lib/pdf-lib.esm.min.js", import.meta.
 
 const WELCOME_SEEN_KEY = "lv-pdf-welcome-seen";
 
-/** US Letter size in PDF points (1 pt = 1/72 in). Used to pad manual crops for predictable printing. */
+/** US Letter size in PDF points (1 pt = 1/72 in). Export pages use this so printing on Letter is predictable. */
 const LETTER_W_PT = 612;
 const LETTER_H_PT = 792;
 
@@ -113,6 +114,9 @@ const els = {
   previewBlock: document.getElementById("preview-block"),
   previewCanvas: document.getElementById("preview-canvas"),
   trimMargins: document.getElementById("trim-margins"),
+  smartCrop: document.getElementById("smart-crop"),
+  autoContrast: document.getElementById("auto-contrast"),
+  autoDeskew: document.getElementById("auto-deskew"),
   undoTrim: document.getElementById("undo-trim"),
   processBtn: document.getElementById("process-btn"),
   extractBtn: document.getElementById("extract-btn"),
@@ -303,7 +307,7 @@ function syncCropPageSelectOptions() {
 async function loadCropPreviewForPage(pageIndex) {
   const res = await postWorkerRequest(pdfWorker, {
     type: "renderPage",
-    payload: { pageIndex, maxLongEdge: 2400, trimMargins: false },
+    payload: buildRenderPayload(pageIndex, 2400, false),
   });
   const bitmap = res.payload?.bitmap;
   if (!(bitmap instanceof ImageBitmap)) throw new Error("Render failed");
@@ -342,6 +346,44 @@ function readDirection() {
 function readRotation() {
   const checked = document.querySelector('input[name="rotation"]:checked');
   return Number(checked?.value || 90);
+}
+
+function readSmartCrop() {
+  return !!(els.smartCrop && els.smartCrop.checked);
+}
+
+function readAutoContrast() {
+  return !!(els.autoContrast && els.autoContrast.checked);
+}
+
+function readAutoDeskew() {
+  return !!(els.autoDeskew && els.autoDeskew.checked);
+}
+
+/**
+ * @param {number} pageIndex
+ * @param {number} maxLongEdge
+ * @param {boolean} trimMargins
+ */
+function buildRenderPayload(pageIndex, maxLongEdge, trimMargins) {
+  return {
+    pageIndex,
+    maxLongEdge,
+    trimMargins,
+    autoContrast: readAutoContrast(),
+    autoDeskew: readAutoDeskew(),
+  };
+}
+
+/** Renders a page for OCR: neutral pipeline (no trim/contrast/deskew). */
+function buildOcrRenderPayload(pageIndex) {
+  return {
+    pageIndex,
+    maxLongEdge: 1800,
+    trimMargins: false,
+    autoContrast: false,
+    autoDeskew: false,
+  };
 }
 
 function applyTheme(dark) {
@@ -402,11 +444,7 @@ async function renderFirstPagePreview() {
   if (!pdfWorker || pageCount < 1) return;
   const res = await postWorkerRequest(pdfWorker, {
     type: "renderPage",
-    payload: {
-      pageIndex: 1,
-      maxLongEdge: 900,
-      trimMargins: false,
-    },
+    payload: buildRenderPayload(1, 900, false),
   });
   const bitmap = res.payload?.bitmap;
   if (!(bitmap instanceof ImageBitmap)) return;
@@ -503,6 +541,7 @@ async function runReflow() {
   const direction = readDirection();
   const rotation = readRotation();
   const trimMargins = els.trimMargins.checked && splitMode === "auto";
+  const smartCrop = splitMode === "auto" && readSmartCrop();
 
   if (splitMode === "manual") {
     for (let p = 1; p <= pageCount; p++) {
@@ -528,11 +567,7 @@ async function runReflow() {
 
       const renderRes = await postWorkerRequest(pdfWorker, {
         type: "renderPage",
-        payload: {
-          pageIndex: p,
-          maxLongEdge,
-          trimMargins,
-        },
+        payload: buildRenderPayload(p, maxLongEdge, trimMargins),
       });
 
       let pageBitmap = renderRes.payload?.bitmap;
@@ -556,6 +591,7 @@ async function runReflow() {
               splitMode === "manual"
                 ? cropRegionsByPage[p] ?? []
                 : [],
+            smartCrop,
           },
         },
         [pageBitmap],
@@ -629,9 +665,34 @@ async function runTextExtraction() {
 
   try {
     const res = await postWorkerRequest(pdfWorker, { type: "extractText" });
-    const text = res.payload?.text ?? "";
-    els.extractedText.value = text.trim()
-      ? text
+    const embeddedText = res.payload?.text ?? "";
+    const hasEmbeddedText = !!res.payload?.hasEmbeddedText;
+
+    if (hasEmbeddedText && embeddedText.trim()) {
+      els.extractedText.value = embeddedText;
+      setStatus(t("dynamicCopy.status.extractionFinished"));
+      return;
+    }
+
+    const ocrText = await runTesseractOnPdfPages(
+      async (pageIndex) => {
+        const renderRes = await postWorkerRequest(pdfWorker, {
+          type: "renderPage",
+          payload: buildOcrRenderPayload(pageIndex),
+        });
+        const bitmap = renderRes.payload?.bitmap;
+        if (!(bitmap instanceof ImageBitmap)) {
+          throw new Error("Render failed: missing bitmap");
+        }
+        return bitmap;
+      },
+      pageCount,
+      getLocale(),
+      (key, vars) => setStatus(t(key, vars)),
+    );
+
+    els.extractedText.value = ocrText.trim()
+      ? ocrText
       : t("dynamicCopy.extractedText.noTextFound");
     setStatus(t("dynamicCopy.status.extractionFinished"));
   } catch (err) {
@@ -673,19 +734,14 @@ async function downloadReflowedPdf() {
       const w = pngImage.width;
       const h = pngImage.height;
 
-      if (splitMode === "manual") {
-        const box = letterBoxLayout(w, h);
-        const page = pdfDoc.addPage([box.pageW, box.pageH]);
-        page.drawImage(pngImage, {
-          x: box.x,
-          y: box.y,
-          width: box.drawW,
-          height: box.drawH,
-        });
-      } else {
-        const page = pdfDoc.addPage([w, h]);
-        page.drawImage(pngImage, { x: 0, y: 0, width: w, height: h });
-      }
+      const box = letterBoxLayout(w, h);
+      const page = pdfDoc.addPage([box.pageW, box.pageH]);
+      page.drawImage(pngImage, {
+        x: box.x,
+        y: box.y,
+        width: box.drawW,
+        height: box.drawH,
+      });
     }
 
     const outBytes = await pdfDoc.save();
@@ -741,6 +797,18 @@ function initWelcome() {
   els.welcomeHelp.addEventListener("click", () => {
     showWelcome();
   });
+}
+
+async function refreshLivePreviews() {
+  if (!pdfLoaded || pageCount < 1 || !pdfWorker) return;
+  try {
+    await renderFirstPagePreview();
+    if (!els.cropModal.hidden) {
+      await loadCropPreviewForPage(cropModalPageIndex);
+    }
+  } catch (err) {
+    console.error(err);
+  }
 }
 
 function wireEvents() {
@@ -824,8 +892,20 @@ function wireEvents() {
   els.undoTrim.addEventListener("click", () => {
     els.trimMargins.checked = false;
     els.undoTrim.hidden = true;
+    void refreshLivePreviews();
     void runReflow();
   });
+
+  if (els.autoContrast) {
+    els.autoContrast.addEventListener("change", () => {
+      void refreshLivePreviews();
+    });
+  }
+  if (els.autoDeskew) {
+    els.autoDeskew.addEventListener("change", () => {
+      void refreshLivePreviews();
+    });
+  }
 
   els.debugToggle.addEventListener("click", () => {
     els.debugPanel.hidden = !els.debugPanel.hidden;

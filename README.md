@@ -24,6 +24,16 @@ The render worker imports `vendor/pdfjs/pdf.min.mjs` and `pdf.worker.min.mjs` (v
 
 The main thread dynamically imports [pdf-lib](https://pdf-lib.js.org/) from `vendor/pdf-lib/pdf-lib.esm.min.js` (version **1.17.1**) to assemble segment PNGs into a multi-page PDF. To upgrade, run `npm install pdf-lib@<version>` and copy `node_modules/pdf-lib/dist/pdf-lib.esm.min.js` into `vendor/pdf-lib/`, then update this README line.
 
+## OCR (Step 2, scanned PDFs)
+
+When a PDF has no embedded text, Step 2 runs **[Tesseract.js](https://github.com/naptha/tesseract.js)** (WASM) in the browser. These paths are vendored for offline/same-origin use:
+
+- `vendor/tesseract.js/dist/` — main bundle (`tesseract.esm.min.js`) and `worker.min.js`
+- `vendor/tesseract.js-core/` — Emscripten core loaders and `.wasm` files (SIMD / LSTM variants as required by the library)
+- `vendor/tessdata/` — `eng.traineddata.gz` and `ara.traineddata.gz` (Arabic when the UI locale is Arabic)
+
+To upgrade, download matching versions from npm/CDN into those folders (see Tesseract.js docs for `workerPath`, `corePath`, and `langPath`).
+
 ## Print
 
 Use the browser’s Print dialog on the reflowed view; users can print to paper or “Save as PDF” from there.

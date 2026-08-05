@@ -10,7 +10,7 @@ export default {
     "heading": "Welcome to Low Vision PDF",
     "description": "This tool helps you prepare a PDF for easier low-vision reading. All processing happens in your browser—nothing is uploaded to a server. After optional text extraction to verify the document, choose Automatic splitting to slice each page into larger strips, or Manual cropping to draw boxes on each page yourself (you can add any number of regions per page). Then generate the reflowed view and print, or download a new PDF. Manual downloads place each segment on a US Letter page with margins so printing fits predictably.",
     "bullet1": "Upload your PDF and check the first-page preview.",
-    "bullet2": "Optional: extract text to verify the document.",
+    "bullet2": "Optional: extract text to verify the document (including OCR for scanned pages).",
     "bullet3": "Configure layout: Automatic splitting uses segments, direction, rotation, and optional margin trimming; Manual cropping defines regions separately on every page.",
     "bullet4": "Generate the reflowed view, then use Download reflowed PDF or your browser’s Print dialog.",
     "getStarted": "Get started"
@@ -38,7 +38,7 @@ export default {
   },
   "step2": {
     "heading": "Step 2: Verify (text extraction)",
-    "description": "Embedded text is read with the same PDF engine used for rendering. No text leaves your device. Use this after upload to confirm you have the correct document before you adjust layout options.",
+    "description": "Embedded text is read with the same PDF engine used for rendering. If the PDF has no embedded text (for example a scan), Tesseract runs in your browser (WASM) to OCR each page—nothing is uploaded. Use this after upload to confirm you have the correct document before you adjust layout options.",
     "extractButton": "Extract text for verification",
     "extractedTextHeading": "Extracted document text",
     "textareaAriaLabel": "Plain text extracted from the PDF for verification",
@@ -128,6 +128,8 @@ export default {
       "done": "Done. {pageCount} page(s) reflowed into {n} segment image(s). Use “Download reflowed PDF” when you are ready.",
       "error": "Error: {message}",
       "extractingText": "Extracting text…",
+      "ocrLoadingEngine": "Loading OCR engine (WASM) and language data…",
+      "ocrPage": "Running OCR on page {p} of {total}…",
       "extractionFinished": "Text extraction finished.",
       "extractionFailed": "Text extraction failed.",
       "buildingPdf": "Building PDF…",
@@ -144,7 +146,7 @@ export default {
     },
     "extractedText": {
       "loadFirst": "Load a PDF before extracting text.",
-      "noTextFound": "No embedded text was found. This may be a scanned PDF; only OCR could read pixels, which is not enabled in this build.",
+      "noTextFound": "No text could be extracted (no embedded text, and OCR did not return readable text).",
       "failed": "Extraction failed: {message}"
     },
     "outputSegments": {
@@ -155,7 +157,7 @@ export default {
       "filenamePattern": "{basename}-reflowed.pdf"
     },
     "email": {
-      "supportSubjectUrlEncoded": "Graham%20Visual%20Acuity%20Tester%20Support"
+      "supportSubjectUrlEncoded": "Low%20Vision%20PDF%20Support"
     },
     "workerErrors": {
       "renderFailed": "Render failed.",
