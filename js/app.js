@@ -307,7 +307,7 @@ function syncCropPageSelectOptions() {
 async function loadCropPreviewForPage(pageIndex) {
   const res = await postWorkerRequest(pdfWorker, {
     type: "renderPage",
-    payload: buildRenderPayload(pageIndex, 1600, false),
+    payload: buildRenderPayload(pageIndex, 2400, false),
   });
   const bitmap = res.payload?.bitmap;
   if (!(bitmap instanceof ImageBitmap)) throw new Error("Render failed");

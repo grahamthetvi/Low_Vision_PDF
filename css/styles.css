@@ -597,12 +597,13 @@ input[type="file"]:focus-visible {
 }
 
 .crop-card {
-  max-width: 95vw;
+  max-width: 98vw;
   width: 100%;
-  height: 90vh;
+  height: 94vh;
+  max-height: 96vh;
   display: flex;
   flex-direction: column;
-  padding: 1.5rem;
+  padding: 1.25rem;
   border: 3px solid var(--border);
   background: var(--bg);
   color: var(--fg);
