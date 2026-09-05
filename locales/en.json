@@ -104,13 +104,23 @@
   },
   "cropModal": {
     "heading": "Define Crop Regions",
-    "instructionBasic": "Choose a page, then click and drag on the image to draw boxes. You can add any number of regions per page. Repeat for each page.",
+    "instructionBasic": "Choose a page, then click and drag on the image to draw boxes. Click a box to select it, then drag to move or use the corner handles to resize. Press Delete or Backspace to remove the selected box. Repeat for each page.",
     "pageLabel": "Page",
     "pageAriaLabel": "Which PDF page to define crops for",
     "pageOption": "Page {p} of {total}",
     "clearAll": "Clear All",
+    "deleteSelected": "Delete selected",
     "cancel": "Cancel",
     "save": "Save Regions"
+  },
+  "splitReviewModal": {
+    "heading": "Review split lines",
+    "instructionBasic": "Smart Crop found an ambiguous cut on this page. Drag the highlighted lines to choose where the page should be split.",
+    "instructionDetailed": "A graphic or border may be confusing automatic detection. The red tint marks a very thin slice that Smart Crop would create. Drag the cyan split lines to where you want the page divided, then choose “Use these cuts”.",
+    "pageLabel": "Page {p} of {total}",
+    "useAuto": "Use auto cuts anyway",
+    "cancel": "Cancel processing",
+    "confirm": "Use these cuts"
   },
   "dynamicCopy": {
     "cropStatus": {
@@ -121,7 +131,7 @@
         "allPagesReady": "Every page has at least one crop region ({total} pages). Ready to generate."
       }
     },
-    "cropInstructionsDetailed": "Select a page above, then click and drag to draw boxes on that page only. You can add any number of regions per page. Switch pages and repeat until every page is covered ({total} pages).",
+    "cropInstructionsDetailed": "Select a page above, then click and drag to draw boxes on that page only. Click a box to select it, then drag to move or use the handles to resize. Press Delete or Backspace to remove the selected box. Switch pages and repeat until every page is covered ({total} pages).",
     "status": {
       "loadFirst": "Load a PDF first.",
       "loadingCropPreview": "Loading preview for cropping…",
@@ -132,6 +142,7 @@
       "processing": "Processing…",
       "renderingPage": "Rendering page {p} of {total}…",
       "splittingPage": "Splitting page {p} of {total}…",
+      "splitReviewCancelled": "Processing cancelled while reviewing split lines.",
       "done": "Done. {pageCount} page(s) reflowed into {n} segment image(s). Use “Download reflowed PDF” when you are ready.",
       "error": "Error: {message}",
       "extractingText": "Extracting text…",

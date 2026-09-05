@@ -238,39 +238,69 @@ function smartVerticalCuts(w, segments, minSeg, bands) {
 }
 
 /**
- * @param {ImageBitmap} source
- * @param {{ mode?: 'auto' | 'manual'; segments?: number; direction?: 'horizontal' | 'vertical'; rotation: number; cropRegions?: {x:number, y:number, w:number, h:number}[]; smartCrop?: boolean }} opts
- * @returns {ImageBitmap[]}
+ * Detect when auto splits would leave a tiny sliver segment, which often means
+ * a full-page graphic (e.g. vertical rule) confused ink-based snapping.
+ * @param {number[]} cuts pixel positions including 0 and totalSize
+ * @param {number} totalSize
+ * @param {number} segments
  */
-function splitBitmap(source, opts) {
-  const {
-    mode = "auto",
-    segments = 2,
-    direction = "horizontal",
-    rotation = 0,
-    cropRegions = [],
-    smartCrop = false,
-  } = opts;
-  const w = source.width;
-  const h = source.height;
-  const parts = [];
+function analyzeAmbiguousCuts(cuts, totalSize, segments) {
+  const idealSegSize = totalSize / segments;
+  const sliverThreshold = Math.max(24, totalSize * 0.06);
+  /** @type {{ segmentIndex: number; segmentSize: number; reason: string }[]} */
+  const reasons = [];
 
-  if (mode === "manual") {
-    for (const region of cropRegions) {
-      const sx = Math.max(0, Math.floor(region.x * w));
-      const sy = Math.max(0, Math.floor(region.y * h));
-      const sw = Math.min(w - sx, Math.floor(region.w * w));
-      const sh = Math.min(h - sy, Math.floor(region.h * h));
+  for (let i = 0; i < segments; i++) {
+    const segSize = cuts[i + 1] - cuts[i];
+    if (segSize < sliverThreshold) {
+      reasons.push({
+        segmentIndex: i,
+        segmentSize: segSize,
+        reason: "tiny_segment",
+      });
+    }
+  }
 
-      if (sw > 0 && sh > 0) {
-        const strip = new OffscreenCanvas(sw, sh);
-        strip.getContext("2d").drawImage(source, sx, sy, sw, sh, 0, 0, sw, sh);
-        let bmp = strip.transferToImageBitmap();
-        bmp = rotateImageBitmap(bmp, rotation);
-        parts.push(bmp);
+  for (let i = 1; i < cuts.length - 1; i++) {
+    const ideal = Math.floor((i * totalSize) / segments);
+    const actual = cuts[i];
+    const prevCut = cuts[i - 1];
+    const nextCut = cuts[i + 1];
+    const minAdjacent = Math.min(actual - prevCut, nextCut - actual);
+    if (
+      minAdjacent < sliverThreshold &&
+      Math.abs(actual - ideal) > totalSize * 0.03
+    ) {
+      const segIdx = minAdjacent === actual - prevCut ? i - 1 : i;
+      if (!reasons.some((r) => r.segmentIndex === segIdx)) {
+        reasons.push({
+          segmentIndex: segIdx,
+          segmentSize: minAdjacent,
+          reason: "edge_sliver",
+        });
       }
     }
-  } else if (direction === "horizontal") {
+  }
+
+  return {
+    needsReview: reasons.length > 0,
+    reasons,
+    sliverThreshold,
+    idealSegSize,
+  };
+}
+
+/**
+ * @param {ImageBitmap} source
+ * @param {'horizontal' | 'vertical'} direction
+ * @param {number} segments
+ * @param {boolean} smartCrop
+ */
+function computeAutoCuts(source, direction, segments, smartCrop) {
+  const w = source.width;
+  const h = source.height;
+
+  if (direction === "horizontal") {
     const minSeg = Math.max(
       1,
       Math.min(Math.max(24, Math.floor(h / 200)), Math.floor(h / (segments + 1)) - 1),
@@ -295,6 +325,85 @@ function splitBitmap(source, opts) {
         else cutYs.push(i * base);
       }
     }
+    const ambiguity = smartCrop && segments > 1
+      ? analyzeAmbiguousCuts(cutYs, h, segments)
+      : { needsReview: false, reasons: [], sliverThreshold: 0, idealSegSize: h / segments };
+    return { cuts: cutYs, minSeg, ambiguity, axisSize: h };
+  }
+
+  const minSeg = Math.max(
+    1,
+    Math.min(Math.max(24, Math.floor(w / 200)), Math.floor(w / (segments + 1)) - 1),
+  );
+  /** @type {number[]} */
+  let cutXs;
+  if (smartCrop && segments > 1) {
+    const canvas = new OffscreenCanvas(w, h);
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(source, 0, 0);
+    const imageData = ctx.getImageData(0, 0, w, h);
+    const mask = colInkMask(imageData, 245);
+    const maxGap = Math.max(2, Math.min(8, Math.floor(w / 120)));
+    const bands = maskToBands(mask, maxGap);
+    cutXs = smartVerticalCuts(w, segments, minSeg, bands);
+  } else {
+    cutXs = [];
+    const base = Math.floor(w / segments);
+    for (let i = 0; i <= segments; i++) {
+      if (i === 0) cutXs.push(0);
+      else if (i === segments) cutXs.push(w);
+      else cutXs.push(i * base);
+    }
+  }
+  const ambiguity = smartCrop && segments > 1
+    ? analyzeAmbiguousCuts(cutXs, w, segments)
+    : { needsReview: false, reasons: [], sliverThreshold: 0, idealSegSize: w / segments };
+  return { cuts: cutXs, minSeg, ambiguity, axisSize: w };
+}
+
+/**
+ * @param {ImageBitmap} source
+ * @param {{ mode?: 'auto' | 'manual'; segments?: number; direction?: 'horizontal' | 'vertical'; rotation: number; cropRegions?: {x:number, y:number, w:number, h:number}[]; smartCrop?: boolean; customCuts?: number[] }} opts
+ * @returns {ImageBitmap[]}
+ */
+function splitBitmap(source, opts) {
+  const {
+    mode = "auto",
+    segments = 2,
+    direction = "horizontal",
+    rotation = 0,
+    cropRegions = [],
+    smartCrop = false,
+    customCuts = null,
+  } = opts;
+  const w = source.width;
+  const h = source.height;
+  const parts = [];
+
+  if (mode === "manual") {
+    for (const region of cropRegions) {
+      const sx = Math.max(0, Math.floor(region.x * w));
+      const sy = Math.max(0, Math.floor(region.y * h));
+      const sw = Math.min(w - sx, Math.floor(region.w * w));
+      const sh = Math.min(h - sy, Math.floor(region.h * h));
+
+      if (sw > 0 && sh > 0) {
+        const strip = new OffscreenCanvas(sw, sh);
+        strip.getContext("2d").drawImage(source, sx, sy, sw, sh, 0, 0, sw, sh);
+        let bmp = strip.transferToImageBitmap();
+        bmp = rotateImageBitmap(bmp, rotation);
+        parts.push(bmp);
+      }
+    }
+  } else if (direction === "horizontal") {
+    /** @type {number[]} */
+    let cutYs;
+    if (Array.isArray(customCuts) && customCuts.length === segments + 1) {
+      cutYs = customCuts.map((c) => Math.round(c));
+    } else {
+      const computed = computeAutoCuts(source, "horizontal", segments, smartCrop);
+      cutYs = computed.cuts;
+    }
     for (let i = 0; i < segments; i++) {
       const sy = cutYs[i];
       const shPart = cutYs[i + 1] - sy;
@@ -305,29 +414,13 @@ function splitBitmap(source, opts) {
       parts.push(bmp);
     }
   } else {
-    const minSeg = Math.max(
-      1,
-      Math.min(Math.max(24, Math.floor(w / 200)), Math.floor(w / (segments + 1)) - 1),
-    );
     /** @type {number[]} */
     let cutXs;
-    if (smartCrop && segments > 1) {
-      const canvas = new OffscreenCanvas(w, h);
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(source, 0, 0);
-      const imageData = ctx.getImageData(0, 0, w, h);
-      const mask = colInkMask(imageData, 245);
-      const maxGap = Math.max(2, Math.min(8, Math.floor(w / 120)));
-      const bands = maskToBands(mask, maxGap);
-      cutXs = smartVerticalCuts(w, segments, minSeg, bands);
+    if (Array.isArray(customCuts) && customCuts.length === segments + 1) {
+      cutXs = customCuts.map((c) => Math.round(c));
     } else {
-      cutXs = [];
-      const base = Math.floor(w / segments);
-      for (let i = 0; i <= segments; i++) {
-        if (i === 0) cutXs.push(0);
-        else if (i === segments) cutXs.push(w);
-        else cutXs.push(i * base);
-      }
+      const computed = computeAutoCuts(source, "vertical", segments, smartCrop);
+      cutXs = computed.cuts;
     }
     for (let i = 0; i < segments; i++) {
       const sx = cutXs[i];
@@ -351,7 +444,7 @@ self.onmessage = (event) => {
 
   try {
     if (type === "split") {
-      const { imageBitmap, mode, segments, direction, rotation, cropRegions, smartCrop } =
+      const { imageBitmap, mode, segments, direction, rotation, cropRegions, smartCrop, customCuts } =
         payload;
       const bitmaps = splitBitmap(imageBitmap, {
         mode,
@@ -360,12 +453,31 @@ self.onmessage = (event) => {
         rotation,
         cropRegions,
         smartCrop: !!smartCrop,
+        customCuts: customCuts ?? null,
       });
       imageBitmap.close();
       self.postMessage(
         { requestId, type: "splitResult", payload: { bitmaps } },
         bitmaps,
       );
+    } else if (type === "analyzeAutoSplit") {
+      const { imageBitmap, segments, direction, smartCrop } = payload;
+      const computed = computeAutoCuts(
+        imageBitmap,
+        direction === "vertical" ? "vertical" : "horizontal",
+        segments,
+        !!smartCrop,
+      );
+      self.postMessage({
+        requestId,
+        type: "analyzeAutoSplitResult",
+        payload: {
+          cuts: computed.cuts,
+          minSeg: computed.minSeg,
+          ambiguity: computed.ambiguity,
+          axisSize: computed.axisSize,
+        },
+      });
     } else {
       self.postMessage({
         requestId,

@@ -479,7 +479,9 @@
         <h2 id="crop-title" data-i18n="cropModal.heading">Define Crop Regions</h2>
         <p id="crop-modal-instructions" data-i18n="cropModal.instructionBasic">
           Choose a page, then click and drag on the image below to draw boxes.
-          Repeat for each page.
+          Repeat for each page. Click a box to select it, then drag to move or use
+          the corner handles to resize. Press Delete or Backspace to remove the
+          selected box.
         </p>
         <div class="field-row crop-page-row">
           <label for="crop-page-select" data-i18n="cropModal.pageLabel">Page</label>
@@ -492,9 +494,36 @@
           <canvas id="crop-canvas"></canvas>
         </div>
         <div class="crop-actions">
+          <button type="button" id="crop-delete-selected" class="secondary-btn" hidden data-i18n="cropModal.deleteSelected">Delete selected</button>
           <button type="button" id="crop-clear" class="secondary-btn" data-i18n="cropModal.clearAll">Clear All</button>
           <button type="button" id="crop-cancel" class="secondary-btn" data-i18n="cropModal.cancel">Cancel</button>
           <button type="button" id="crop-save" class="primary-btn" data-i18n="cropModal.save">Save Regions</button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="split-review-modal"
+      class="welcome-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="split-review-title"
+      hidden
+    >
+      <div class="crop-card split-review-card">
+        <h2 id="split-review-title" data-i18n="splitReviewModal.heading">Review split lines</h2>
+        <p id="split-review-instructions" data-i18n="splitReviewModal.instructionBasic">
+          Smart Crop found an ambiguous cut on this page. Drag the highlighted
+          lines to choose where the page should be split.
+        </p>
+        <p id="split-review-page-label" class="hint"></p>
+        <div class="crop-canvas-wrapper">
+          <canvas id="split-review-canvas"></canvas>
+        </div>
+        <div class="crop-actions">
+          <button type="button" id="split-review-accept-auto" class="secondary-btn" data-i18n="splitReviewModal.useAuto">Use auto cuts</button>
+          <button type="button" id="split-review-cancel" class="secondary-btn" data-i18n="splitReviewModal.cancel">Cancel processing</button>
+          <button type="button" id="split-review-confirm" class="primary-btn" data-i18n="splitReviewModal.confirm">Use these cuts</button>
         </div>
       </div>
     </div>
