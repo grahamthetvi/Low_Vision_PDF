@@ -11,6 +11,12 @@ import {
   translateWorkerErrorMessage,
 } from "./i18n.js";
 import { runTesseractOnPdfPages } from "./tesseractOcr.js";
+import {
+  EMBEDDED_VERIFY_MAX_PAGES,
+  OCR_VERIFY_MAX_PAGES,
+  sampleVerificationPages,
+  formatPageList,
+} from "./verificationPages.js";
 
 const PDF_WORKER_URL = new URL("../workers/pdfRender.worker.mjs", import.meta.url);
 const SPLIT_WORKER_URL = new URL("../workers/split.worker.mjs", import.meta.url);
@@ -1057,6 +1063,48 @@ async function runReflow() {
   }
 }
 
+/**
+ * @param {string} body
+ * @param {number[]} pages
+ * @param {number} total
+ * @param {boolean} sampled
+ */
+function presentExtractedText(body, pages, total, sampled) {
+  const trimmed = (body || "").trim();
+  if (!trimmed) {
+    els.extractedText.value = t("dynamicCopy.extractedText.noTextFound");
+    return;
+  }
+  if (sampled) {
+    const pagesLabel = formatPageList(pages);
+    const note = t("dynamicCopy.extractedText.sampleNote", {
+      pages: pagesLabel,
+      total,
+    });
+    els.extractedText.value = `${note}\n\n${trimmed}`;
+  } else {
+    els.extractedText.value = trimmed;
+  }
+}
+
+/**
+ * @param {number[]} pages
+ * @param {number} total
+ * @param {boolean} sampled
+ */
+function extractionFinishedStatus(pages, total, sampled) {
+  if (sampled) {
+    setStatus(
+      t("dynamicCopy.status.extractionFinishedSample", {
+        pages: formatPageList(pages),
+        total,
+      }),
+    );
+  } else {
+    setStatus(t("dynamicCopy.status.extractionFinished"));
+  }
+}
+
 async function runTextExtraction() {
   if (!pdfWorker || pageCount < 1) {
     els.extractedText.value = t("dynamicCopy.extractedText.loadFirst");
@@ -1067,17 +1115,51 @@ async function runTextExtraction() {
   els.processBtn.disabled = true;
   els.downloadPdfBtn.disabled = true;
   els.extractBtn.setAttribute("aria-busy", "true");
-  setStatus(t("dynamicCopy.status.extractingText"));
+
+  const embeddedPages = sampleVerificationPages(pageCount, EMBEDDED_VERIFY_MAX_PAGES);
+  const embeddedSampled = embeddedPages.length < pageCount;
+  if (embeddedSampled) {
+    setStatus(
+      t("dynamicCopy.status.extractingTextSample", {
+        pages: formatPageList(embeddedPages),
+        total: pageCount,
+      }),
+    );
+  } else {
+    setStatus(t("dynamicCopy.status.extractingText"));
+  }
 
   try {
-    const res = await postWorkerRequest(pdfWorker, { type: "extractText" });
+    const res = await postWorkerRequest(pdfWorker, {
+      type: "extractText",
+      payload: { pageIndices: embeddedPages },
+    });
     const embeddedText = res.payload?.text ?? "";
     const hasEmbeddedText = !!res.payload?.hasEmbeddedText;
+    const usedEmbeddedPages = Array.isArray(res.payload?.pageIndices)
+      ? res.payload.pageIndices
+      : embeddedPages;
 
     if (hasEmbeddedText && embeddedText.trim()) {
-      els.extractedText.value = embeddedText;
-      setStatus(t("dynamicCopy.status.extractionFinished"));
+      presentExtractedText(
+        embeddedText,
+        usedEmbeddedPages,
+        pageCount,
+        embeddedSampled,
+      );
+      extractionFinishedStatus(usedEmbeddedPages, pageCount, embeddedSampled);
       return;
+    }
+
+    const ocrPages = sampleVerificationPages(pageCount, OCR_VERIFY_MAX_PAGES);
+    const ocrSampled = ocrPages.length < pageCount;
+    if (ocrSampled) {
+      setStatus(
+        t("dynamicCopy.status.ocrSampleNotice", {
+          pages: formatPageList(ocrPages),
+          total: pageCount,
+        }),
+      );
     }
 
     const ocrText = await runTesseractOnPdfPages(
@@ -1092,15 +1174,14 @@ async function runTextExtraction() {
         }
         return bitmap;
       },
+      ocrPages,
       pageCount,
       getLocale(),
       (key, vars) => setStatus(t(key, vars)),
     );
 
-    els.extractedText.value = ocrText.trim()
-      ? ocrText
-      : t("dynamicCopy.extractedText.noTextFound");
-    setStatus(t("dynamicCopy.status.extractionFinished"));
+    presentExtractedText(ocrText, ocrPages, pageCount, ocrSampled);
+    extractionFinishedStatus(ocrPages, pageCount, ocrSampled);
   } catch (err) {
     console.error(err);
     els.extractedText.value = t("dynamicCopy.extractedText.failed", {
