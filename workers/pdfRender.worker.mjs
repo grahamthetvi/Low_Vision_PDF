@@ -143,31 +143,6 @@ function toGrayscale(im) {
 }
 
 /**
- * Horizontal shear (shift each row) on grayscale, sample with clamp.
- * @param {Uint8Array} src
- * @param {number} w
- * @param {number} h
- * @param {number} shearTan tan(angle) positive shifts rows right with y
- */
-function shearHorizontalGray(src, w, h, shearTan) {
-  const out = new Uint8Array(w * h);
-  const cy = (h - 1) / 2;
-  for (let y = 0; y < h; y++) {
-    const shift = shearTan * (y - cy);
-    for (let x = 0; x < w; x++) {
-      const xs = x - shift;
-      const x0 = Math.floor(xs);
-      const x1 = x0 + 1;
-      const f = xs - x0;
-      const v0 = x0 >= 0 && x0 < w ? src[y * w + x0] : 255;
-      const v1 = x1 >= 0 && x1 < w ? src[y * w + x1] : 255;
-      out[y * w + x] = Math.round(v0 * (1 - f) + v1 * f);
-    }
-  }
-  return out;
-}
-
-/**
  * Otsu threshold for 8-bit grayscale.
  * @param {Uint8Array} gray
  * @param {number} w
@@ -201,39 +176,14 @@ function otsuThresholdU8(gray, w, h) {
 }
 
 /**
- * Variance of row sums (higher when text lines align with rows).
- * @param {Uint8Array} gray
- * @param {number} w
- * @param {number} h
- */
-function projectionRowVariance(gray, w, h) {
-  const sums = new Float64Array(h);
-  for (let y = 0; y < h; y++) {
-    let s = 0;
-    const o = y * w;
-    for (let x = 0; x < w; x++) s += 255 - gray[o + x];
-    sums[y] = s;
-  }
-  let mean = 0;
-  for (let y = 0; y < h; y++) mean += sums[y];
-  mean /= h;
-  let v = 0;
-  for (let y = 0; y < h; y++) {
-    const d = sums[y] - mean;
-    v += d * d;
-  }
-  return v / h;
-}
-
-/**
- * Estimate skew angle (degrees, CCW) using shear search on a downscaled copy.
- * Positive angle means content appears rotated CCW; we rotate by -angle to straighten.
+ * Estimate skew and return the CCW rotation (degrees) that straightens the page.
+ * Ink-point slanted row-projection on a downscaled Otsu image; ignores outer margins.
  * @param {ImageData} imageData
  * @returns {number} correction to apply (rotate bitmap by this many degrees CCW)
  */
 function estimateDeskewAngle(imageData) {
   const { width: W, height: H } = imageData;
-  const maxSide = 320;
+  const maxSide = 600;
   const scale = Math.min(1, maxSide / Math.max(W, H));
   const w = Math.max(32, Math.round(W * scale));
   const h = Math.max(32, Math.round(H * scale));
@@ -246,34 +196,92 @@ function estimateDeskewAngle(imageData) {
   fctx.putImageData(imageData, 0, 0);
   sctx.drawImage(full, 0, 0, W, H, 0, 0, w, h);
   const sim = sctx.getImageData(0, 0, w, h);
-  let gray = toGrayscale(sim);
+  const gray = toGrayscale(sim);
   const otsuThreshold = otsuThresholdU8(gray, w, h);
-  for (let i = 0; i < gray.length; i++) {
-    gray[i] = gray[i] < otsuThreshold ? 0 : 255;
+
+  const marginX = Math.max(1, Math.floor(w * 0.05));
+  const marginY = Math.max(1, Math.floor(h * 0.05));
+  const x0 = marginX;
+  const x1 = w - marginX;
+  const y0 = marginY;
+  const y1 = h - marginY;
+  const inkX = [];
+  const inkY = [];
+  for (let y = y0; y < y1; y++) {
+    const row = y * w;
+    for (let x = x0; x < x1; x++) {
+      if (gray[row + x] < otsuThreshold) {
+        inkX.push(x);
+        inkY.push(y);
+      }
+    }
+  }
+  const nInk = inkX.length;
+  if (nInk < 150) return 0;
+
+  const cx = (w - 1) / 2;
+  const sums = new Float64Array(h);
+
+  function scoreAngle(angleDeg) {
+    sums.fill(0);
+    const shearTan = -Math.tan((angleDeg * Math.PI) / 180);
+    for (let i = 0; i < nInk; i++) {
+      const iy = Math.round(inkY[i] + shearTan * (inkX[i] - cx));
+      if (iy >= 0 && iy < h) sums[iy]++;
+    }
+    let mean = 0;
+    for (let y = 0; y < h; y++) mean += sums[y];
+    mean /= h;
+    let v = 0;
+    for (let y = 0; y < h; y++) {
+      const d = sums[y] - mean;
+      v += d * d;
+    }
+    return v / h;
   }
 
-  const baseVar = projectionRowVariance(gray, w, h);
-  if (baseVar < 1e-6) return 0;
+  const baseScore = scoreAngle(0);
+  if (baseScore < 1e-6) return 0;
 
-  let bestAngle = 0;
-  let bestScore = baseVar;
-  const step = 0.25;
-  const limit = 6;
-  for (let a = -limit; a <= limit + 1e-6; a += step) {
-    const rad = (a * Math.PI) / 180;
-    const tan = Math.tan(rad);
-    const sheared = shearHorizontalGray(gray, w, h, tan);
-    const v = projectionRowVariance(sheared, w, h);
-    const penalty = 1 + 0.0008 * a * a;
-    const score = v / penalty;
-    if (score > bestScore) {
-      bestScore = score;
-      bestAngle = a;
+  const coarseLimit = 10;
+  const coarseStep = 0.5;
+  let bestCoarse = 0;
+  let bestCoarseScore = baseScore;
+  for (let a = -coarseLimit; a <= coarseLimit + 1e-9; a += coarseStep) {
+    const s = scoreAngle(a);
+    if (s > bestCoarseScore) {
+      bestCoarseScore = s;
+      bestCoarse = a;
     }
   }
 
-  if (bestScore / baseVar < 1.04) return 0;
-  return -bestAngle;
+  const fineStep = 0.1;
+  let bestFine = bestCoarse;
+  let bestFineScore = bestCoarseScore;
+  const fineStart = bestCoarse - coarseStep;
+  const fineEnd = bestCoarse + coarseStep;
+  for (let a = fineStart; a <= fineEnd + 1e-9; a += fineStep) {
+    const s = scoreAngle(a);
+    if (s > bestFineScore) {
+      bestFineScore = s;
+      bestFine = a;
+    }
+  }
+
+  const sm1 = scoreAngle(bestFine - fineStep);
+  const sp1 = scoreAngle(bestFine + fineStep);
+  let refined = bestFine;
+  const denom = 2 * (sm1 - 2 * bestFineScore + sp1);
+  if (Math.abs(denom) > 1e-9) {
+    const delta = (sm1 - sp1) / denom;
+    if (Math.abs(delta) <= 1) {
+      refined = bestFine + delta * fineStep;
+    }
+  }
+  refined = Math.max(-coarseLimit, Math.min(coarseLimit, refined));
+
+  if (bestFineScore / baseScore < 1.06) return 0;
+  return refined;
 }
 
 /**

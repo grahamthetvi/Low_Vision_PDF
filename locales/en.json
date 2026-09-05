@@ -65,7 +65,7 @@
     "autoContrastHeading": "Auto contrast",
     "autoContrastDesc": "Stretches brightness on each page to help faded or low-contrast scans.",
     "autoDeskewHeading": "Auto tilt correction",
-    "autoDeskewDesc": "Straightens pages that were scanned slightly crooked (typical small skew only).",
+    "autoDeskewDesc": "Straightens pages that were scanned slightly crooked (typical scan skew up to about 10°).",
     "legendDirection": "Splitting direction",
     "directionOptions": {
       "horizontal": "Horizontal (top to bottom)",
