@@ -102,8 +102,34 @@ let cropRegions = [];
 let cropDrawing = false;
 let cropStart = { x: 0, y: 0 };
 let currentCropPreview = null;
+let cropSelectedIndex = -1;
+/** @type {null | 'draw' | 'move' | 'resize'} */
+let cropInteraction = null;
+/** @type {string | null} */
+let cropResizeHandle = null;
+let cropDragAnchor = { x: 0, y: 0 };
+/** @type {{x:number, y:number, w:number, h:number} | null} */
+let cropDragStartRegion = null;
 /** @type {ImageBitmap | null} */
 let cropPreviewImageBitmap = null;
+
+const CROP_MIN_SIZE = 0.01;
+const CROP_HANDLE_HIT = 0.018;
+
+/** @type {Record<number, number[]>} User-adjusted pixel cut positions per page (1-based). */
+let autoSplitOverridesByPage = {};
+/** @type {ImageBitmap | null} */
+let splitReviewImageBitmap = null;
+/** @type {number[]} */
+let splitReviewCuts = [];
+let splitReviewDirection = "horizontal";
+let splitReviewSegments = 2;
+let splitReviewMinSeg = 24;
+let splitReviewPageIndex = 1;
+/** @type {null | number} Index of interior cut being dragged. */
+let splitReviewDraggingCut = null;
+/** @type {((result: { action: 'confirm' | 'auto' | 'cancel'; cuts?: number[] }) => void) | null} */
+let splitReviewResolve = null;
 
 const els = {
   welcomeScreen: document.getElementById("welcome-screen"),
@@ -138,9 +164,17 @@ const els = {
   cropModalInstructions: document.getElementById("crop-modal-instructions"),
   cropCanvas: document.getElementById("crop-canvas"),
   cropClearBtn: document.getElementById("crop-clear"),
+  cropDeleteSelectedBtn: document.getElementById("crop-delete-selected"),
   cropCancelBtn: document.getElementById("crop-cancel"),
   cropSaveBtn: document.getElementById("crop-save"),
   cropPageSelect: document.getElementById("crop-page-select"),
+  splitReviewModal: document.getElementById("split-review-modal"),
+  splitReviewInstructions: document.getElementById("split-review-instructions"),
+  splitReviewPageLabel: document.getElementById("split-review-page-label"),
+  splitReviewCanvas: document.getElementById("split-review-canvas"),
+  splitReviewAcceptAutoBtn: document.getElementById("split-review-accept-auto"),
+  splitReviewCancelBtn: document.getElementById("split-review-cancel"),
+  splitReviewConfirmBtn: document.getElementById("split-review-confirm"),
   localeSelect: document.getElementById("locale-select"),
 };
 
@@ -468,21 +502,45 @@ function drawCropCanvas() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(cropPreviewImageBitmap, 0, 0, canvas.width, canvas.height);
 
-  ctx.strokeStyle = "red";
-  ctx.lineWidth = 3;
-  ctx.fillStyle = "rgba(255, 0, 0, 0.15)";
-
-  for (const r of cropRegions) {
+  for (let i = 0; i < cropRegions.length; i++) {
+    const r = cropRegions[i];
+    const selected = i === cropSelectedIndex;
     const x = r.x * canvas.width;
     const y = r.y * canvas.height;
     const w = r.w * canvas.width;
     const h = r.h * canvas.height;
+
+    ctx.fillStyle = selected ? "rgba(255, 200, 0, 0.2)" : "rgba(255, 0, 0, 0.15)";
+    ctx.strokeStyle = selected ? "#ffaa00" : "red";
+    ctx.lineWidth = selected ? 4 : 3;
     ctx.fillRect(x, y, w, h);
     ctx.strokeRect(x, y, w, h);
+
+    if (selected) {
+      const handleSize = Math.max(8, CROP_HANDLE_HIT * canvas.width);
+      const handles = [
+        [x, y],
+        [x + w / 2, y],
+        [x + w, y],
+        [x + w, y + h / 2],
+        [x + w, y + h],
+        [x + w / 2, y + h],
+        [x, y + h],
+        [x, y + h / 2],
+      ];
+      ctx.fillStyle = "#ffaa00";
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = 1;
+      for (const [hx, hy] of handles) {
+        ctx.fillRect(hx - handleSize / 2, hy - handleSize / 2, handleSize, handleSize);
+        ctx.strokeRect(hx - handleSize / 2, hy - handleSize / 2, handleSize, handleSize);
+      }
+    }
   }
 
   if (currentCropPreview) {
     ctx.strokeStyle = "blue";
+    ctx.lineWidth = 3;
     ctx.fillStyle = "rgba(0, 0, 255, 0.2)";
     const x = currentCropPreview.x * canvas.width;
     const y = currentCropPreview.y * canvas.height;
@@ -491,6 +549,306 @@ function drawCropCanvas() {
     ctx.fillRect(x, y, w, h);
     ctx.strokeRect(x, y, w, h);
   }
+
+  if (els.cropDeleteSelectedBtn) {
+    els.cropDeleteSelectedBtn.hidden = cropSelectedIndex < 0;
+  }
+}
+
+/**
+ * @param {{x:number, y:number, w:number, h:number}} r
+ */
+function clampCropRegion(r) {
+  let { x, y, w, h } = r;
+  w = Math.max(CROP_MIN_SIZE, w);
+  h = Math.max(CROP_MIN_SIZE, h);
+  if (x < 0) {
+    w += x;
+    x = 0;
+  }
+  if (y < 0) {
+    h += y;
+    y = 0;
+  }
+  if (x + w > 1) w = 1 - x;
+  if (y + h > 1) h = 1 - y;
+  w = Math.max(CROP_MIN_SIZE, w);
+  h = Math.max(CROP_MIN_SIZE, h);
+  return { x, y, w, h };
+}
+
+/**
+ * @param {{x:number, y:number}} pos normalized
+ * @param {{x:number, y:number, w:number, h:number}} region
+ */
+function pointInCropRegion(pos, region) {
+  return (
+    pos.x >= region.x &&
+    pos.x <= region.x + region.w &&
+    pos.y >= region.y &&
+    pos.y <= region.y + region.h
+  );
+}
+
+/**
+ * @param {{x:number, y:number}} pos normalized
+ * @returns {number}
+ */
+function hitTestCropRegions(pos) {
+  for (let i = cropRegions.length - 1; i >= 0; i--) {
+    if (pointInCropRegion(pos, cropRegions[i])) return i;
+  }
+  return -1;
+}
+
+/**
+ * @param {{x:number, y:number}} pos normalized
+ * @param {{x:number, y:number, w:number, h:number}} region
+ * @returns {string | null}
+ */
+function getCropResizeHandle(pos, region) {
+  const handles = {
+    nw: { x: region.x, y: region.y },
+    n: { x: region.x + region.w / 2, y: region.y },
+    ne: { x: region.x + region.w, y: region.y },
+    e: { x: region.x + region.w, y: region.y + region.h / 2 },
+    se: { x: region.x + region.w, y: region.y + region.h },
+    s: { x: region.x + region.w / 2, y: region.y + region.h },
+    sw: { x: region.x, y: region.y + region.h },
+    w: { x: region.x, y: region.y + region.h / 2 },
+  };
+  for (const [name, hp] of Object.entries(handles)) {
+    if (
+      Math.abs(pos.x - hp.x) <= CROP_HANDLE_HIT &&
+      Math.abs(pos.y - hp.y) <= CROP_HANDLE_HIT
+    ) {
+      return name;
+    }
+  }
+  return null;
+}
+
+/**
+ * @param {{x:number, y:number, w:number, h:number}} start
+ * @param {string} handle
+ * @param {{x:number, y:number}} pos
+ */
+function resizeCropRegionFromHandle(start, handle, pos) {
+  let x = start.x;
+  let y = start.y;
+  let x2 = start.x + start.w;
+  let y2 = start.y + start.h;
+
+  if (handle.includes("w")) x = pos.x;
+  if (handle.includes("e")) x2 = pos.x;
+  if (handle.includes("n")) y = pos.y;
+  if (handle.includes("s")) y2 = pos.y;
+
+  if (x2 - x < CROP_MIN_SIZE) {
+    if (handle.includes("w")) x = x2 - CROP_MIN_SIZE;
+    else x2 = x + CROP_MIN_SIZE;
+  }
+  if (y2 - y < CROP_MIN_SIZE) {
+    if (handle.includes("n")) y = y2 - CROP_MIN_SIZE;
+    else y2 = y + CROP_MIN_SIZE;
+  }
+
+  return clampCropRegion({ x, y, w: x2 - x, h: y2 - y });
+}
+
+function deleteSelectedCropRegion() {
+  if (cropSelectedIndex < 0 || cropSelectedIndex >= cropRegions.length) return;
+  cropRegions.splice(cropSelectedIndex, 1);
+  cropSelectedIndex = -1;
+  persistCropRegionsForModalPage(cropModalPageIndex);
+  drawCropCanvas();
+  updateCropRegionsStatus();
+}
+
+function updateCropCanvasCursor(pos) {
+  const canvas = els.cropCanvas;
+  if (!canvas || cropInteraction) return;
+
+  if (cropSelectedIndex >= 0 && cropSelectedIndex < cropRegions.length) {
+    const handle = getCropResizeHandle(pos, cropRegions[cropSelectedIndex]);
+    if (handle) {
+      const cursorMap = {
+        nw: "nwse-resize",
+        n: "ns-resize",
+        ne: "nesw-resize",
+        e: "ew-resize",
+        se: "nwse-resize",
+        s: "ns-resize",
+        sw: "nesw-resize",
+        w: "ew-resize",
+      };
+      canvas.style.cursor = cursorMap[handle] || "crosshair";
+      return;
+    }
+    if (pointInCropRegion(pos, cropRegions[cropSelectedIndex])) {
+      canvas.style.cursor = "move";
+      return;
+    }
+  }
+
+  const hit = hitTestCropRegions(pos);
+  canvas.style.cursor = hit >= 0 ? "move" : "crosshair";
+}
+
+function drawSplitReviewCanvas() {
+  const canvas = els.splitReviewCanvas;
+  const ctx = canvas?.getContext("2d");
+  if (!ctx || !splitReviewImageBitmap) return;
+
+  const bitmap = splitReviewImageBitmap;
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(bitmap, 0, 0);
+
+  const isHorizontal = splitReviewDirection === "horizontal";
+  const axisSize = isHorizontal ? canvas.height : canvas.width;
+
+  for (let i = 1; i < splitReviewCuts.length - 1; i++) {
+    const cut = splitReviewCuts[i];
+    ctx.strokeStyle = "#00ccff";
+    ctx.lineWidth = 4;
+    ctx.setLineDash([12, 8]);
+    if (isHorizontal) {
+      ctx.beginPath();
+      ctx.moveTo(0, cut);
+      ctx.lineTo(canvas.width, cut);
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(cut, 0);
+      ctx.lineTo(cut, canvas.height);
+      ctx.stroke();
+    }
+
+    ctx.setLineDash([]);
+    ctx.fillStyle = "#00ccff";
+    if (isHorizontal) {
+      const handleW = Math.min(40, canvas.width * 0.08);
+      ctx.fillRect(canvas.width / 2 - handleW / 2, cut - 6, handleW, 12);
+    } else {
+      const handleH = Math.min(40, canvas.height * 0.08);
+      ctx.fillRect(cut - 6, canvas.height / 2 - handleH / 2, 12, handleH);
+    }
+  }
+
+  for (let i = 0; i < splitReviewSegments; i++) {
+    const start = splitReviewCuts[i];
+    const end = splitReviewCuts[i + 1];
+    const segSize = end - start;
+    const ideal = axisSize / splitReviewSegments;
+    if (segSize < Math.max(24, axisSize * 0.06)) {
+      ctx.fillStyle = "rgba(255, 0, 0, 0.25)";
+      if (isHorizontal) {
+        ctx.fillRect(0, start, canvas.width, end - start);
+      } else {
+        ctx.fillRect(start, 0, end - start, canvas.height);
+      }
+    }
+  }
+}
+
+/**
+ * @param {number} pageIndex
+ * @param {ImageBitmap} bitmap
+ * @param {number[]} cuts
+ * @param {'horizontal' | 'vertical'} direction
+ * @param {number} segments
+ * @param {number} minSeg
+ * @returns {Promise<{ action: 'confirm' | 'auto' | 'cancel'; cuts?: number[] }>}
+ */
+function openSplitReviewModal(pageIndex, bitmap, cuts, direction, segments, minSeg) {
+  return new Promise((resolve) => {
+    splitReviewResolve = resolve;
+    splitReviewPageIndex = pageIndex;
+    splitReviewDirection = direction;
+    splitReviewSegments = segments;
+    splitReviewMinSeg = minSeg;
+    splitReviewCuts = cuts.slice();
+    splitReviewDraggingCut = null;
+
+    if (splitReviewImageBitmap) splitReviewImageBitmap.close();
+    splitReviewImageBitmap = bitmap;
+
+    els.splitReviewPageLabel.textContent = t("splitReviewModal.pageLabel", {
+      p: pageIndex,
+      total: pageCount,
+    });
+    els.splitReviewInstructions.textContent = t("splitReviewModal.instructionDetailed");
+
+    drawSplitReviewCanvas();
+    els.splitReviewModal.hidden = false;
+  });
+}
+
+function closeSplitReviewModal(result) {
+  els.splitReviewModal.hidden = true;
+  splitReviewDraggingCut = null;
+  if (splitReviewResolve) {
+    splitReviewResolve(result);
+    splitReviewResolve = null;
+  }
+}
+
+/**
+ * @param {MouseEvent} e
+ */
+function getSplitReviewMouseAxisPos(e) {
+  const canvas = els.splitReviewCanvas;
+  const rect = canvas.getBoundingClientRect();
+  const isHorizontal = splitReviewDirection === "horizontal";
+  const axisSize = isHorizontal ? canvas.height : canvas.width;
+  const rel = isHorizontal
+    ? (e.clientY - rect.top) / rect.height
+    : (e.clientX - rect.left) / rect.width;
+  return Math.max(0, Math.min(axisSize, rel * axisSize));
+}
+
+/**
+ * @param {number} axisPos
+ * @returns {number | null}
+ */
+function hitTestSplitReviewCut(axisPos) {
+  const hitDist = Math.max(12, splitReviewMinSeg * 0.5);
+  for (let i = 1; i < splitReviewCuts.length - 1; i++) {
+    if (Math.abs(splitReviewCuts[i] - axisPos) <= hitDist) return i;
+  }
+  return null;
+}
+
+/**
+ * @param {number} cutIndex
+ * @param {number} axisPos
+ */
+function setSplitReviewCutPosition(cutIndex, axisPos) {
+  const minSeg = splitReviewMinSeg;
+  const prev = splitReviewCuts[cutIndex - 1] + minSeg;
+  const next = splitReviewCuts[cutIndex + 1] - minSeg;
+  splitReviewCuts[cutIndex] = Math.max(prev, Math.min(next, axisPos));
+}
+
+/**
+ * @param {ImageBitmap} pageBitmap
+ * @param {number} segments
+ * @param {'horizontal' | 'vertical'} direction
+ * @param {boolean} smartCrop
+ */
+async function analyzeAutoSplit(pageBitmap, segments, direction, smartCrop) {
+  const res = await postWorkerRequest(splitWorker, {
+    type: "analyzeAutoSplit",
+    payload: {
+      imageBitmap: pageBitmap,
+      segments,
+      direction,
+      smartCrop,
+    },
+  });
+  return res.payload;
 }
 
 async function openCropModal() {
@@ -514,6 +872,7 @@ async function openCropModal() {
     els.cropModalInstructions.textContent = t("dynamicCopy.cropInstructionsDetailed", {
       total: pageCount,
     });
+    cropSelectedIndex = -1;
 
     await loadCropPreviewForPage(cropModalPageIndex);
 
@@ -577,6 +936,52 @@ async function runReflow() {
 
       setStatus(t("dynamicCopy.status.splittingPage", { p, total: pageCount }));
 
+      /** @type {number[] | null} */
+      let customCuts = autoSplitOverridesByPage[p] ?? null;
+
+      if (
+        splitMode === "auto" &&
+        smartCrop &&
+        segments > 1 &&
+        !customCuts
+      ) {
+        const analysis = await analyzeAutoSplit(
+          pageBitmap,
+          segments,
+          direction,
+          smartCrop,
+        );
+        if (analysis?.ambiguity?.needsReview) {
+          const reviewResult = await openSplitReviewModal(
+            p,
+            pageBitmap,
+            analysis.cuts,
+            direction,
+            segments,
+            analysis.minSeg ?? 24,
+          );
+          if (reviewResult.action === "cancel") {
+            pageBitmap.close();
+            if (splitReviewImageBitmap) {
+              splitReviewImageBitmap.close();
+              splitReviewImageBitmap = null;
+            }
+            setStatus(t("dynamicCopy.status.splitReviewCancelled"));
+            return;
+          }
+          if (reviewResult.action === "confirm" && reviewResult.cuts) {
+            customCuts = reviewResult.cuts;
+            autoSplitOverridesByPage[p] = customCuts.slice();
+          } else if (reviewResult.action === "auto") {
+            customCuts = analysis.cuts;
+          }
+          if (splitReviewImageBitmap) {
+            splitReviewImageBitmap.close();
+            splitReviewImageBitmap = null;
+          }
+        }
+      }
+
       const splitRes = await postWorkerRequest(
         splitWorker,
         {
@@ -592,6 +997,7 @@ async function runReflow() {
                 ? cropRegionsByPage[p] ?? []
                 : [],
             smartCrop,
+            customCuts: splitMode === "auto" ? customCuts : null,
           },
         },
         [pageBitmap],
@@ -836,6 +1242,8 @@ function wireEvents() {
     cropRegionsByPage = {};
     cropRegions = [];
     cropModalPageIndex = 1;
+    cropSelectedIndex = -1;
+    autoSplitOverridesByPage = {};
     els.extractedText.value = "";
     els.extractBtn.disabled = true;
 
@@ -937,13 +1345,31 @@ function wireEvents() {
 
   document.querySelectorAll('input[name="segments"]').forEach((radio) => {
     radio.addEventListener("change", () => {
-      if (splitMode === "auto" && Object.keys(cropRegionsByPage).length > 0) {
-        cropRegionsByPage = {};
-        cropRegions = [];
-        updateCropRegionsStatus();
+      if (splitMode === "auto") {
+        autoSplitOverridesByPage = {};
+        if (Object.keys(cropRegionsByPage).length > 0) {
+          cropRegionsByPage = {};
+          cropRegions = [];
+          cropSelectedIndex = -1;
+          updateCropRegionsStatus();
+        }
       }
     });
   });
+
+  document.querySelectorAll('input[name="direction"]').forEach((radio) => {
+    radio.addEventListener("change", () => {
+      if (splitMode === "auto") {
+        autoSplitOverridesByPage = {};
+      }
+    });
+  });
+
+  if (els.smartCrop) {
+    els.smartCrop.addEventListener("change", () => {
+      autoSplitOverridesByPage = {};
+    });
+  }
 
   els.openCropModalBtn.addEventListener("click", () => {
     void openCropModal();
@@ -960,6 +1386,7 @@ function wireEvents() {
         cropRegions = (cropRegionsByPage[cropModalPageIndex] ?? []).map((r) => ({
           ...r,
         }));
+        cropSelectedIndex = -1;
 
         setStatus(t("dynamicCopy.status.loadingCropPreview"));
         els.cropPageSelect.disabled = true;
@@ -978,11 +1405,18 @@ function wireEvents() {
 
   els.cropClearBtn.addEventListener("click", () => {
     cropRegions = [];
+    cropSelectedIndex = -1;
     persistCropRegionsForModalPage(cropModalPageIndex);
     currentCropPreview = null;
     drawCropCanvas();
     updateCropRegionsStatus();
   });
+
+  if (els.cropDeleteSelectedBtn) {
+    els.cropDeleteSelectedBtn.addEventListener("click", () => {
+      deleteSelectedCropRegion();
+    });
+  }
 
   els.cropCancelBtn.addEventListener("click", () => {
     persistCropRegionsForModalPage(cropModalPageIndex);
@@ -1004,40 +1438,174 @@ function wireEvents() {
   }
 
   els.cropCanvas.addEventListener("mousedown", (e) => {
+    const pos = getCropMousePos(e);
+
+    if (cropSelectedIndex >= 0 && cropSelectedIndex < cropRegions.length) {
+      const handle = getCropResizeHandle(pos, cropRegions[cropSelectedIndex]);
+      if (handle) {
+        cropInteraction = "resize";
+        cropResizeHandle = handle;
+        cropDragStartRegion = { ...cropRegions[cropSelectedIndex] };
+        cropDragAnchor = pos;
+        e.preventDefault();
+        return;
+      }
+    }
+
+    const hitIndex = hitTestCropRegions(pos);
+    if (hitIndex >= 0) {
+      cropSelectedIndex = hitIndex;
+      cropInteraction = "move";
+      cropDragStartRegion = { ...cropRegions[hitIndex] };
+      cropDragAnchor = pos;
+      drawCropCanvas();
+      e.preventDefault();
+      return;
+    }
+
+    cropSelectedIndex = -1;
     cropDrawing = true;
-    cropStart = getCropMousePos(e);
+    cropInteraction = "draw";
+    cropStart = pos;
     currentCropPreview = { x: cropStart.x, y: cropStart.y, w: 0, h: 0 };
+    drawCropCanvas();
   });
 
   els.cropCanvas.addEventListener("mousemove", (e) => {
-    if (!cropDrawing) return;
     const pos = getCropMousePos(e);
-    const x = Math.min(cropStart.x, pos.x);
-    const y = Math.min(cropStart.y, pos.y);
-    const w = Math.abs(pos.x - cropStart.x);
-    const h = Math.abs(pos.y - cropStart.y);
-    currentCropPreview = { x, y, w, h };
-    drawCropCanvas();
+
+    if (cropInteraction === "resize" && cropResizeHandle && cropDragStartRegion && cropSelectedIndex >= 0) {
+      cropRegions[cropSelectedIndex] = resizeCropRegionFromHandle(
+        cropDragStartRegion,
+        cropResizeHandle,
+        pos,
+      );
+      drawCropCanvas();
+      return;
+    }
+
+    if (cropInteraction === "move" && cropDragStartRegion && cropSelectedIndex >= 0) {
+      const dx = pos.x - cropDragAnchor.x;
+      const dy = pos.y - cropDragAnchor.y;
+      cropRegions[cropSelectedIndex] = clampCropRegion({
+        x: cropDragStartRegion.x + dx,
+        y: cropDragStartRegion.y + dy,
+        w: cropDragStartRegion.w,
+        h: cropDragStartRegion.h,
+      });
+      drawCropCanvas();
+      return;
+    }
+
+    if (cropDrawing && cropInteraction === "draw") {
+      const x = Math.min(cropStart.x, pos.x);
+      const y = Math.min(cropStart.y, pos.y);
+      const w = Math.abs(pos.x - cropStart.x);
+      const h = Math.abs(pos.y - cropStart.y);
+      currentCropPreview = { x, y, w, h };
+      drawCropCanvas();
+      return;
+    }
+
+    updateCropCanvasCursor(pos);
   });
 
-  els.cropCanvas.addEventListener("mouseup", () => {
-    if (!cropDrawing) return;
-    cropDrawing = false;
-    if (currentCropPreview && currentCropPreview.w > 0.01 && currentCropPreview.h > 0.01) {
-      cropRegions.push(currentCropPreview);
+  function finishCropInteraction() {
+    if (cropInteraction === "draw" && cropDrawing) {
+      cropDrawing = false;
+      if (currentCropPreview && currentCropPreview.w > CROP_MIN_SIZE && currentCropPreview.h > CROP_MIN_SIZE) {
+        cropRegions.push(currentCropPreview);
+        cropSelectedIndex = cropRegions.length - 1;
+        persistCropRegionsForModalPage(cropModalPageIndex);
+        updateCropRegionsStatus();
+      }
+      currentCropPreview = null;
+    } else if (cropInteraction === "move" || cropInteraction === "resize") {
       persistCropRegionsForModalPage(cropModalPageIndex);
     }
-    currentCropPreview = null;
+    cropInteraction = null;
+    cropResizeHandle = null;
+    cropDragStartRegion = null;
     drawCropCanvas();
-    updateCropRegionsStatus();
+  }
+
+  els.cropCanvas.addEventListener("mouseup", () => {
+    finishCropInteraction();
   });
 
   els.cropCanvas.addEventListener("mouseleave", () => {
-    if (!cropDrawing) return;
-    cropDrawing = false;
-    currentCropPreview = null;
-    drawCropCanvas();
+    if (cropInteraction === "draw") {
+      cropDrawing = false;
+      currentCropPreview = null;
+      cropInteraction = null;
+      drawCropCanvas();
+    }
+    els.cropCanvas.style.cursor = "crosshair";
   });
+
+  els.cropCanvas.addEventListener("dblclick", (e) => {
+    const pos = getCropMousePos(e);
+    const hit = hitTestCropRegions(pos);
+    if (hit >= 0) {
+      cropSelectedIndex = hit;
+      deleteSelectedCropRegion();
+    }
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (els.cropModal.hidden) return;
+    if (e.key === "Delete" || e.key === "Backspace") {
+      if (cropSelectedIndex >= 0) {
+        e.preventDefault();
+        deleteSelectedCropRegion();
+      }
+    }
+    if (e.key === "Escape" && cropSelectedIndex >= 0) {
+      cropSelectedIndex = -1;
+      drawCropCanvas();
+    }
+  });
+
+  if (els.splitReviewCanvas) {
+    els.splitReviewCanvas.addEventListener("mousedown", (e) => {
+      const axisPos = getSplitReviewMouseAxisPos(e);
+      splitReviewDraggingCut = hitTestSplitReviewCut(axisPos);
+      e.preventDefault();
+    });
+
+    els.splitReviewCanvas.addEventListener("mousemove", (e) => {
+      if (splitReviewDraggingCut === null) return;
+      const axisPos = getSplitReviewMouseAxisPos(e);
+      setSplitReviewCutPosition(splitReviewDraggingCut, axisPos);
+      drawSplitReviewCanvas();
+    });
+
+    els.splitReviewCanvas.addEventListener("mouseup", () => {
+      splitReviewDraggingCut = null;
+    });
+
+    els.splitReviewCanvas.addEventListener("mouseleave", () => {
+      splitReviewDraggingCut = null;
+    });
+  }
+
+  if (els.splitReviewConfirmBtn) {
+    els.splitReviewConfirmBtn.addEventListener("click", () => {
+      closeSplitReviewModal({ action: "confirm", cuts: splitReviewCuts.slice() });
+    });
+  }
+
+  if (els.splitReviewAcceptAutoBtn) {
+    els.splitReviewAcceptAutoBtn.addEventListener("click", () => {
+      closeSplitReviewModal({ action: "auto" });
+    });
+  }
+
+  if (els.splitReviewCancelBtn) {
+    els.splitReviewCancelBtn.addEventListener("click", () => {
+      closeSplitReviewModal({ action: "cancel" });
+    });
+  }
 }
 
 function init() {
