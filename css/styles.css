@@ -351,6 +351,38 @@ input[type="file"]:focus-visible {
   outline-offset: 2px;
 }
 
+.page-color-options label {
+  align-items: center;
+}
+
+.color-swatch {
+  display: inline-block;
+  width: 1.15rem;
+  height: 1.15rem;
+  border: 2px solid var(--border);
+  flex: 0 0 auto;
+}
+
+.color-swatch-invert {
+  background: linear-gradient(135deg, #ffffff 50%, #000000 50%);
+}
+
+.color-swatch-yellow {
+  background: #ffeb3b;
+}
+
+.color-swatch-red {
+  background: #ff8a80;
+}
+
+.color-swatch-blue {
+  background: #82b1ff;
+}
+
+.color-swatch-green {
+  background: #81c784;
+}
+
 .checkbox-row {
   display: flex;
   align-items: flex-start;

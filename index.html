@@ -261,6 +261,46 @@
             </p>
           </fieldset>
 
+          <fieldset class="fieldset">
+            <legend data-i18n="step3.legendPageColor">Page colors</legend>
+            <div class="radio-row page-color-options">
+              <label>
+                <input type="radio" name="page-color" value="none" checked />
+                <span data-i18n="step3.pageColor.none">Original</span>
+              </label>
+              <label>
+                <input type="radio" name="page-color" value="invert" />
+                <span class="color-swatch color-swatch-invert" aria-hidden="true"></span>
+                <span data-i18n="step3.pageColor.invert">Invert</span>
+              </label>
+              <label>
+                <input type="radio" name="page-color" value="yellow" />
+                <span class="color-swatch color-swatch-yellow" aria-hidden="true"></span>
+                <span data-i18n="step3.pageColor.yellow">Yellow</span>
+              </label>
+              <label>
+                <input type="radio" name="page-color" value="red" />
+                <span class="color-swatch color-swatch-red" aria-hidden="true"></span>
+                <span data-i18n="step3.pageColor.red">Red</span>
+              </label>
+              <label>
+                <input type="radio" name="page-color" value="blue" />
+                <span class="color-swatch color-swatch-blue" aria-hidden="true"></span>
+                <span data-i18n="step3.pageColor.blue">Blue</span>
+              </label>
+              <label>
+                <input type="radio" name="page-color" value="green" />
+                <span class="color-swatch color-swatch-green" aria-hidden="true"></span>
+                <span data-i18n="step3.pageColor.green">Green</span>
+              </label>
+            </div>
+            <p id="page-color-desc" class="hint" data-i18n="step3.pageColorDesc">
+              Inverts light and dark, or keeps dark ink and turns the page yellow,
+              red, blue, or green. The preview updates immediately. Generate again
+              to apply the color to the reflowed pages.
+            </p>
+          </fieldset>
+
           <div id="manual-crop-controls" hidden>
             <button type="button" id="open-crop-modal" class="primary-btn" data-i18n="step3.defineRegionsButton">
               Define crop regions
