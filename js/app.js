@@ -11,6 +11,7 @@ import {
   translateWorkerErrorMessage,
 } from "./i18n.js";
 import { runTesseractOnPdfPages } from "./tesseractOcr.js";
+import { normalizePageColor } from "./pageColor.mjs";
 
 const PDF_WORKER_URL = new URL("../workers/pdfRender.worker.mjs", import.meta.url);
 const SPLIT_WORKER_URL = new URL("../workers/split.worker.mjs", import.meta.url);
@@ -143,6 +144,7 @@ const els = {
   smartCrop: document.getElementById("smart-crop"),
   autoContrast: document.getElementById("auto-contrast"),
   autoDeskew: document.getElementById("auto-deskew"),
+  pageColorRadios: document.querySelectorAll('input[name="page-color"]'),
   undoTrim: document.getElementById("undo-trim"),
   processBtn: document.getElementById("process-btn"),
   extractBtn: document.getElementById("extract-btn"),
@@ -394,6 +396,11 @@ function readAutoDeskew() {
   return !!(els.autoDeskew && els.autoDeskew.checked);
 }
 
+function readPageColor() {
+  const checked = document.querySelector('input[name="page-color"]:checked');
+  return normalizePageColor(checked?.value);
+}
+
 /**
  * @param {number} pageIndex
  * @param {number} maxLongEdge
@@ -406,10 +413,11 @@ function buildRenderPayload(pageIndex, maxLongEdge, trimMargins) {
     trimMargins,
     autoContrast: readAutoContrast(),
     autoDeskew: readAutoDeskew(),
+    pageColor: readPageColor(),
   };
 }
 
-/** Renders a page for OCR: neutral pipeline (no trim/contrast/deskew). */
+/** Renders a page for OCR: neutral pipeline (no trim/contrast/deskew/recolor). */
 function buildOcrRenderPayload(pageIndex) {
   return {
     pageIndex,
@@ -417,6 +425,7 @@ function buildOcrRenderPayload(pageIndex) {
     trimMargins: false,
     autoContrast: false,
     autoDeskew: false,
+    pageColor: "none",
   };
 }
 
@@ -1314,6 +1323,11 @@ function wireEvents() {
       void refreshLivePreviews();
     });
   }
+  els.pageColorRadios.forEach((radio) => {
+    radio.addEventListener("change", () => {
+      void refreshLivePreviews();
+    });
+  });
 
   els.debugToggle.addEventListener("click", () => {
     els.debugPanel.hidden = !els.debugPanel.hidden;

@@ -4,6 +4,8 @@
  * (same origin). No document bytes are sent to any remote server.
  */
 
+import { applyPageColor, normalizePageColor } from "../js/pageColor.mjs";
+
 /** Vendored pdf.js 4.10.38 — same-origin, no CDN required for the engine. */
 const PDF_MODULE_URL = new URL("../vendor/pdfjs/pdf.min.mjs", import.meta.url)
   .href;
@@ -328,6 +330,7 @@ function applyAutoContrast(imageData) {
  * @param {boolean} trimMargins
  * @param {boolean} autoContrast
  * @param {boolean} autoDeskew
+ * @param {string} pageColor
  */
 async function renderPageToBitmap(
   pageIndex,
@@ -335,6 +338,7 @@ async function renderPageToBitmap(
   trimMargins,
   autoContrast,
   autoDeskew,
+  pageColor,
 ) {
   if (!pdfDocument) throw new Error("No PDF loaded");
 
@@ -389,11 +393,28 @@ async function renderPageToBitmap(
       const tctx = trimmed.getContext("2d");
       if (!tctx) throw new Error("Could not get trimmed context");
       tctx.drawImage(canvas, box.x, box.y, box.w, box.h, 0, 0, box.w, box.h);
+      applyColorToCanvas(tctx, box.w, box.h, pageColor);
       return trimmed.transferToImageBitmap();
     }
   }
 
+  applyColorToCanvas(ctx, canvas.width, canvas.height, pageColor);
   return canvas.transferToImageBitmap();
+}
+
+/**
+ * Applies invert or a page tint after contrast and margin trim so trim still
+ * sees the original paper color.
+ * @param {OffscreenCanvasRenderingContext2D} ctx
+ * @param {number} width
+ * @param {number} height
+ * @param {string} pageColor
+ */
+function applyColorToCanvas(ctx, width, height, pageColor) {
+  if (normalizePageColor(pageColor) === "none") return;
+  const imageData = ctx.getImageData(0, 0, width, height);
+  applyPageColor(imageData, pageColor);
+  ctx.putImageData(imageData, 0, 0);
 }
 
 async function extractAllText() {
@@ -465,6 +486,7 @@ self.onmessage = async (event) => {
         trimMargins,
         autoContrast = false,
         autoDeskew = false,
+        pageColor = "none",
       } = msg.payload;
       const bitmap = await renderPageToBitmap(
         pageIndex,
@@ -472,6 +494,7 @@ self.onmessage = async (event) => {
         !!trimMargins,
         !!autoContrast,
         !!autoDeskew,
+        normalizePageColor(pageColor),
       );
       self.postMessage(
         {

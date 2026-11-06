@@ -66,6 +66,16 @@
     "autoContrastDesc": "Stretches brightness on each page to help faded or low-contrast scans.",
     "autoDeskewHeading": "Auto tilt correction",
     "autoDeskewDesc": "Straightens pages that were scanned slightly crooked (typical small skew only).",
+    "legendPageColor": "Page colors",
+    "pageColor": {
+      "none": "Original",
+      "invert": "Invert",
+      "yellow": "Yellow",
+      "red": "Red",
+      "blue": "Blue",
+      "green": "Green"
+    },
+    "pageColorDesc": "Inverts light and dark, or keeps dark ink and turns the page yellow, red, blue, or green. The preview updates immediately. Generate again to apply the color to the reflowed pages.",
     "legendDirection": "Splitting direction",
     "directionOptions": {
       "horizontal": "Horizontal (top to bottom)",
